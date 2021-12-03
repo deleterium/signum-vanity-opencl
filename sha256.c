@@ -1,7 +1,13 @@
+#include "programConstants.h"
 #include "sha256.h"
+// #pragma OPENCL EXTENSION cl_intel_printf : enable
+// #pragma OPENCL EXTENSION cl_amd_printf : enable
+// #pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
+
+void check_error(cl_int error, int position);
 
 static cl_platform_id platform_id = NULL;
-static cl_device_id device_id = NULL;  
+static cl_device_id device_id = NULL;
 static cl_uint ret_num_devices;
 static cl_uint ret_num_platforms;
 static cl_context context;
@@ -16,16 +22,13 @@ static cl_kernel kernel;
 static cl_command_queue command_queue;
 
 
-static cl_mem pinned_saved_keys, pinned_partial_hashes, buffer_out, buffer_keys, data_info;
+static cl_mem /* pinned_saved_keys, */ pinned_partial_hashes, buffer_out, buffer_keys, data_info;
 static cl_uint *partial_hashes;
-static cl_uint *res_hashes;
-static char *saved_plain;
+// static cl_uint *res_hashes;
+/* static char *saved_plain; */
 static unsigned int datai[3];
-static int have_full_hashes;
 
-static size_t kpc = 4;
-
-static size_t global_work_size=1;
+static size_t global_work_size=batchSize;
 static size_t local_work_size=1;
 static size_t string_len;
 
@@ -36,94 +39,300 @@ void create_clobj();
 
 void crypt_all();
 
-
-void sha256_init(size_t user_kpc)
-{
-	kpc = user_kpc;
-	load_source();
-	createDevice();
-	createkernel();
-	create_clobj();
+void printBuffer(char* buffer, char* description) {
+    printf("%s\n",description);
+    for (int i=0; i< batchSize; i++) {
+        printf("%*.*s\n",secretBufferSize, secretBufferSize, buffer+secretBufferSize*i);
+    }
+    printf("\n");
 }
 
-unsigned long sha256_crypt(char* input)
-{
-	int i;
-	string_len = strlen(input);
-	global_work_size = 1;
-	datai[0] = SHA256_PLAINTEXT_LENGTH;
-	datai[1] = global_work_size;
-	datai[2] = string_len;
-	memcpy(saved_plain, input, string_len+1);
-
-	crypt_all();
-
-	// for(i=0; i<SHA256_RESULT_SIZE; i++)
-	// {
-	// 	sprintf(output+i*8,"%08x", partial_hashes[i]);
-	// }
-    return (unsigned long) partial_hashes[0] | (unsigned long) partial_hashes[1] << 32;
+void sha256_init(void) {
+    load_source();
+    createDevice();
+    createkernel();
+    create_clobj();
 }
 
-void crypt_all()
-{
-	//printf("%s\n",saved_plain);
-	ret = clEnqueueWriteBuffer(command_queue, data_info, CL_TRUE, 0, sizeof(unsigned int) * 3, datai, 0, NULL, NULL);
-	ret = clEnqueueWriteBuffer(command_queue, buffer_keys, CL_TRUE, 0, SHA256_PLAINTEXT_LENGTH * kpc, saved_plain, 0, NULL, NULL);
-	// printf("%s\n",buffer_keys);
-	ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &global_work_size, &local_work_size, 0, NULL, NULL);
+void sha256_crypt(char* input, unsigned long * result) {
+    int i;
+    datai[0] = secretBufferSize;
+    datai[1] = 0;
+    datai[2] = 0;
+    // memcpy(saved_plain, input, secretBufferSize * batchSize);
 
-	ret = clFinish(command_queue);
-	// read back partial hashes
-	ret = clEnqueueReadBuffer(command_queue, buffer_out, CL_TRUE, 0, sizeof(cl_uint) * SHA256_RESULT_SIZE, partial_hashes, 0, NULL, NULL);
-	have_full_hashes = 0;
+    ret = clEnqueueWriteBuffer(command_queue, data_info, CL_TRUE, 0, sizeof(unsigned int) * 3, datai, 0, NULL, NULL);
+    check_error(ret, 50);
+    ret = clEnqueueWriteBuffer(command_queue, buffer_keys, CL_TRUE, 0, secretBufferSize * batchSize, input, 0, NULL, NULL);
+    check_error(ret, 51);
+    ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &global_work_size, &local_work_size, 0, NULL, NULL);
+    check_error(ret, 52);
+
+    ret = clFinish(command_queue);
+    check_error(ret, 53);
+    // read hashes
+    ret = clEnqueueReadBuffer(command_queue, buffer_out, CL_TRUE, 0, sizeof(cl_uint) * SHA256_RESULT_SIZE * batchSize, partial_hashes, 0, NULL, NULL);
+    check_error(ret, 54);
+
+    for(i=0; i<batchSize; i++) {
+        // printf("%d:: %x %x %x %x %x %x %x %x\n",i, partial_hashes[8*i], partial_hashes[8*i+1], partial_hashes[8*i+2], partial_hashes[8*i+3], partial_hashes[8*i+4], partial_hashes[8*i+5], partial_hashes[8*i+6], partial_hashes[8*i+7]);
+        result[i] = (unsigned long) partial_hashes[8*i] | (unsigned long) partial_hashes[8*i+1] << 32;
+    }
 }
 
-void load_source()
-{
-	FILE *fp;
+void load_source() {
+    FILE *fp;
 
-	fp = fopen("passphraseToId.cl", "r");
-	if (!fp) {
-		fprintf(stderr, "Failed to load kernel.\n");
-		exit(1);
-	}
-	source_str = (char*)malloc(MAX_SOURCE_SIZE);
-	source_size = fread( source_str, 1, MAX_SOURCE_SIZE, fp);
-	fclose( fp );
+    fp = fopen("passphraseToId.cl", "r");
+    if (!fp) {
+        fprintf(stderr, "Failed to load kernel.\n");
+        exit(1);
+    }
+    source_str = (char*)malloc(MAX_SOURCE_SIZE);
+    source_size = fread( source_str, 1, MAX_SOURCE_SIZE, fp);
+    fclose( fp );
 }
 
-void create_clobj(){
-	pinned_saved_keys = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, (SHA256_PLAINTEXT_LENGTH)*kpc, NULL, &ret);
-	saved_plain = (char*)clEnqueueMapBuffer(command_queue, pinned_saved_keys, CL_TRUE, CL_MAP_WRITE | CL_MAP_READ, 0, (SHA256_PLAINTEXT_LENGTH)*kpc, 0, NULL, NULL, &ret);
-	memset(saved_plain, 0, SHA256_PLAINTEXT_LENGTH * kpc);
-	res_hashes = (cl_uint *)malloc(sizeof(cl_uint) * SHA256_RESULT_SIZE);
-	memset(res_hashes, 0, sizeof(cl_uint) * SHA256_RESULT_SIZE);
-	pinned_partial_hashes = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, sizeof(cl_uint) * SHA256_RESULT_SIZE, NULL, &ret);
-	partial_hashes = (cl_uint *) clEnqueueMapBuffer(command_queue, pinned_partial_hashes, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_uint) * SHA256_RESULT_SIZE, 0, NULL, NULL, &ret);
-	memset(partial_hashes, 0, sizeof(cl_uint) * SHA256_RESULT_SIZE);
+void create_clobj() {
+    cl_int errorCode;
+    // pinned_saved_keys = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, (secretBufferSize)* batchSize, NULL, &ret);
+    // saved_plain = (char*)clEnqueueMapBuffer(command_queue, pinned_saved_keys, CL_TRUE, CL_MAP_WRITE | CL_MAP_READ, 0, (secretBufferSize)*batchSize, 0, NULL, NULL, &ret);
+    // memset(saved_plain, 0, (secretBufferSize)*batchSize);
+    // // res_hashes = (cl_uint *)malloc(sizeof(cl_uint) * SHA256_RESULT_SIZE);
+    // // memset(res_hashes, 0, sizeof(cl_uint) * SHA256_RESULT_SIZE);
+    pinned_partial_hashes = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, sizeof(cl_uint) * SHA256_RESULT_SIZE* batchSize, NULL, &ret);
+    check_error(ret,107);
+    partial_hashes = (cl_uint *) clEnqueueMapBuffer(command_queue, pinned_partial_hashes, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_uint) * SHA256_RESULT_SIZE* batchSize, 0, NULL, NULL, &ret);
+    check_error(ret,108);
+    // memset(partial_hashes, 0, sizeof(cl_uint) * SHA256_RESULT_SIZE* batchSize);
 
-	buffer_keys = clCreateBuffer(context, CL_MEM_READ_ONLY, (SHA256_PLAINTEXT_LENGTH) * kpc, NULL, &ret);
-	buffer_out = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(cl_uint) * SHA256_RESULT_SIZE, NULL, &ret);
-	data_info = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(unsigned int) * 3, NULL, &ret);
+    data_info = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(unsigned int) * 3, NULL, &errorCode);
+    check_error(errorCode,109);
+    buffer_keys = clCreateBuffer(context, CL_MEM_READ_ONLY, (secretBufferSize) * batchSize, NULL, &errorCode);
+    check_error(errorCode,107);
+    buffer_out = clCreateBuffer(context, CL_MEM_WRITE_ONLY , sizeof(cl_uint) * SHA256_RESULT_SIZE * batchSize, NULL, &errorCode);
+    check_error(errorCode,108);
 
-	clSetKernelArg(kernel, 0, sizeof(data_info), (void *) &data_info);
-	clSetKernelArg(kernel, 1, sizeof(buffer_keys), (void *) &buffer_keys);
-	clSetKernelArg(kernel, 2, sizeof(buffer_out), (void *) &buffer_out);
+    errorCode=clSetKernelArg(kernel, 0, sizeof(data_info), (void *) &data_info);
+    check_error(errorCode,110);
+    errorCode=clSetKernelArg(kernel, 1, sizeof(buffer_keys), (void *) &buffer_keys);
+    check_error(errorCode,120);
+    errorCode=clSetKernelArg(kernel, 2, sizeof(buffer_out), (void *) &buffer_out);
+    check_error(errorCode,130);
 }
 
-void createDevice()
-{
-	ret = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
-	ret = clGetDeviceIDs( platform_id, CL_DEVICE_TYPE_ALL, 1, &device_id, &ret_num_devices);
-
-	context = clCreateContext( NULL, 1, &device_id, NULL, NULL, &ret);
+void createDevice() {
+    check_error(
+        clGetPlatformIDs(1, &platform_id, &ret_num_platforms),
+        140
+    );
+    check_error(
+        clGetDeviceIDs( platform_id, CL_DEVICE_TYPE_ALL, 1, &device_id, &ret_num_devices),
+        141
+    );
+    context = clCreateContext( NULL, 1, &device_id, NULL, NULL, &ret);
+    check_error(ret, 142);
 }
 
-void createkernel()
-{
-	program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
-	ret = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
-	kernel = clCreateKernel(program, "process", &ret);
-	command_queue = clCreateCommandQueue(context, device_id, 0, &ret);
+void createkernel() {
+    program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
+    check_error(ret, 200);
+    ret = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
+    check_error(ret, 210);
+    kernel = clCreateKernel(program, "process", &ret);
+    check_error(ret, 220);
+    command_queue = clCreateCommandQueue(context, device_id, 0, &ret);
+    check_error(ret, 230);
+}
+
+void check_error(cl_int error, int position) {
+    if (error == CL_SUCCESS) {
+        return;
+    }
+    printf("OpenCL error %d at debug position %d:\n", error, position);
+    switch (error) {
+    case -1:
+        printf("CL_DEVICE_NOT_FOUND    clGetDeviceIDs    if no OpenCL devices that matched device_type were found.");
+        break;
+    case -2:
+        printf("CL_DEVICE_NOT_AVAILABLE    clCreateContext    if a device in devices is currently not available even though the device was returned by clGetDeviceIDs.");
+        break;
+    case -3:
+        printf("CL_COMPILER_NOT _AVAILABLE    clBuildProgram    if program is created with clCreateProgramWithSource and a compiler is not available i.e. CL_DEVICE_COMPILER_AVAILABLE specified in the table of OpenCL Device Queries for clGetDeviceInfo is set to CL_FALSE.");
+        break;
+    case -4:
+        printf("CL_MEM_OBJECT _ALLOCATION_FAILURE        if there is a failure to allocate memory for buffer object.");
+        break;
+    case -5:
+        printf("CL_OUT_OF_RESOURCES        if there is a failure to allocate resources required by the OpenCL implementation on the device.");
+        break;
+    case -6:
+        printf("CL_OUT_OF_HOST_MEMORY        if there is a failure to allocate resources required by the OpenCL implementation on the host.");
+        break;
+    case -7:
+        printf("CL_PROFILING_INFO_NOT _AVAILABLE    clGetEventProfilingInfo    if the CL_QUEUE_PROFILING_ENABLE flag is not set for the command-queue, if the execution status of the command identified by event is not CL_COMPLETE or if event is a user event object.");
+        break;
+    case -8:
+        printf("CL_MEM_COPY_OVERLAP    clEnqueueCopyBuffer, clEnqueueCopyBufferRect, clEnqueueCopyImage    if src_buffer and dst_buffer are the same buffer or subbuffer object and the source and destination regions overlap or if src_buffer and dst_buffer are different sub-buffers of the same associated buffer object and they overlap. The regions overlap if src_offset ≤ to dst_offset ≤ to src_offset + size – 1, or if dst_offset ≤ to src_offset ≤ to dst_offset + size – 1.");
+        break;
+    case -9:
+        printf("CL_IMAGE_FORMAT _MISMATCH    clEnqueueCopyImage    if src_image and dst_image do not use the same image format.");
+        break;
+    case -10:
+        printf("CL_IMAGE_FORMAT_NOT _SUPPORTED    clCreateImage    if the image_format is not supported.");
+        break;
+    case -11:
+        printf("CL_BUILD_PROGRAM _FAILURE    clBuildProgram    if there is a failure to build the program executable. This error will be returned if clBuildProgram does not return until the build has completed.");
+        break;
+    case -12:
+        printf("CL_MAP_FAILURE    clEnqueueMapBuffer, clEnqueueMapImage    if there is a failure to map the requested region into the host address space. This error cannot occur for image objects created with CL_MEM_USE_HOST_PTR or CL_MEM_ALLOC_HOST_PTR.");
+        break;
+    case -13:
+        printf("CL_MISALIGNED_SUB _BUFFER_OFFSET        if a sub-buffer object is specified as the value for an argument that is a buffer object and the offset specified when the sub-buffer object is created is not aligned to CL_DEVICE_MEM_BASE_ADDR_ALIGN value for device associated with queue.");
+        break;
+    case -14:
+        printf("CL_EXEC_STATUS_ERROR_ FOR_EVENTS_IN_WAIT_LIST        if the execution status of any of the events in event_list is a negative integer value.");
+        break;
+    case -15:
+        printf("CL_COMPILE_PROGRAM _FAILURE    clCompileProgram    if there is a failure to compile the program source. This error will be returned if clCompileProgram does not return until the compile has completed.");
+        break;
+    case -16:
+        printf("CL_LINKER_NOT_AVAILABLE    clLinkProgram    if a linker is not available i.e. CL_DEVICE_LINKER_AVAILABLE specified in the table of allowed values for param_name for clGetDeviceInfo is set to CL_FALSE.");
+        break;
+    case -17:
+        printf("CL_LINK_PROGRAM_FAILURE    clLinkProgram    if there is a failure to link the compiled binaries and/or libraries.");
+        break;
+    case -18:
+        printf("CL_DEVICE_PARTITION _FAILED    clCreateSubDevices    if the partition name is supported by the implementation but in_device could not be further partitioned.");
+        break;
+    case -19:
+        printf("CL_KERNEL_ARG_INFO _NOT_AVAILABLE    clGetKernelArgInfo    if the argument information is not available for kernel.");
+        break;
+    case -30:
+        printf("CL_INVALID_VALUE    clGetDeviceIDs, clCreateContext    This depends on the function: two or more coupled parameters had errors.");
+        break;
+    case -31:
+        printf("CL_INVALID_DEVICE_TYPE    clGetDeviceIDs    if an invalid device_type is given");
+        break;
+    case -32:
+        printf("CL_INVALID_PLATFORM    clGetDeviceIDs    if an invalid platform was given");
+        break;
+    case -33:
+        printf("CL_INVALID_DEVICE    clCreateContext, clBuildProgram    if devices contains an invalid device or are not associated with the specified platform.");
+        break;
+    case -34:
+        printf("CL_INVALID_CONTEXT        if context is not a valid context.");
+        break;
+    case -35:
+        printf("CL_INVALID_QUEUE_PROPERTIES    clCreateCommandQueue    if specified command-queue-properties are valid but are not supported by the device.");
+        break;
+    case -36:
+        printf("CL_INVALID_COMMAND_QUEUE        if command_queue is not a valid command-queue.");
+        break;
+    case -37:
+        printf("CL_INVALID_HOST_PTR    clCreateImage, clCreateBuffer    This flag is valid only if host_ptr is not NULL. If specified, it indicates that the application wants the OpenCL implementation to allocate memory for the memory object and copy the data from memory referenced by host_ptr.CL_MEM_COPY_HOST_PTR and CL_MEM_USE_HOST_PTR are mutually exclusive.CL_MEM_COPY_HOST_PTR can be used with CL_MEM_ALLOC_HOST_PTR to initialize the contents of the cl_mem object allocated using host-accessible (e.g. PCIe) memory.");
+        break;
+    case -38:
+        printf("CL_INVALID_MEM_OBJECT        if memobj is not a valid OpenCL memory object.");
+        break;
+    case -39:
+        printf("CL_INVALID_IMAGE_FORMAT_DESCRIPTOR        if the OpenGL/DirectX texture internal format does not map to a supported OpenCL image format.");
+        break;
+    case -40:
+        printf("CL_INVALID_IMAGE_SIZE        if an image object is specified as an argument value and the image dimensions (image width, height, specified or compute row and/or slice pitch) are not supported by device associated with queue.");
+        break;
+    case -41:
+        printf("CL_INVALID_SAMPLER    clGetSamplerInfo, clReleaseSampler, clRetainSampler, clSetKernelArg    if sampler is not a valid sampler object.");
+        break;
+    case -42:
+        printf("CL_INVALID_BINARY    clCreateProgramWithBinary, clBuildProgram    The provided binary is unfit for the selected device. if program is created with clCreateProgramWithBinary and devices listed in device_list do not have a valid program binary loaded.");
+        break;
+    case -43:
+        printf("CL_INVALID_BUILD_OPTIONS    clBuildProgram    if the build options specified by options are invalid.");
+        break;
+    case -44:
+        printf("CL_INVALID_PROGRAM        if program is a not a valid program object.");
+        break;
+    case -45:
+        printf("CL_INVALID_PROGRAM_EXECUTABLE        if there is no successfully built program executable available for device associated with command_queue.");
+        break;
+    case -46:
+        printf("CL_INVALID_KERNEL_NAME    clCreateKernel    if kernel_name is not found in program.");
+        break;
+    case -47:
+        printf("CL_INVALID_KERNEL_DEFINITION    clCreateKernel    if the function definition for __kernel function given by kernel_name such as the number of arguments, the argument types are not the same for all devices for which the program executable has been built.");
+        break;
+    case -48:
+        printf("CL_INVALID_KERNEL        if kernel is not a valid kernel object.");
+        break;
+    case -49:
+        printf("CL_INVALID_ARG_INDEX    clSetKernelArg, clGetKernelArgInfo    if arg_index is not a valid argument index.");
+        break;
+    case -50:
+        printf("CL_INVALID_ARG_VALUE    clSetKernelArg, clGetKernelArgInfo    if arg_value specified is not a valid value.");
+        break;
+    case -51:
+        printf("CL_INVALID_ARG_SIZE    clSetKernelArg    if arg_size does not match the size of the data type for an argument that is not a memory object or if the argument is a memory object and arg_size != sizeof(cl_mem) or if arg_size is zero and the argument is declared with the __local qualifier or if the argument is a sampler and arg_size != sizeof(cl_sampler).");
+        break;
+    case -52:
+        printf("CL_INVALID_KERNEL_ARGS        if the kernel argument values have not been specified.");
+        break;
+    case -53:
+        printf("CL_INVALID_WORK_DIMENSION        if work_dim is not a valid value (i.e. a value between 1 and 3).");
+        break;
+    case -54:
+        printf("CL_INVALID_WORK_GROUP_SIZE        if local_work_size is specified and number of work-items specified by global_work_size is not evenly divisable by size of work-group given by local_work_size or does not match the work-group size specified for kernel using the __attribute__ ((reqd_work_group_size(X, Y, Z))) qualifier in program source.if local_work_size is specified and the total number of work-items in the work-group computed as local_work_size[0] *… local_work_size[work_dim – 1] is greater than the value specified by CL_DEVICE_MAX_WORK_GROUP_SIZE in the table of OpenCL Device Queries for clGetDeviceInfo.if local_work_size is NULL and the __attribute__ ((reqd_work_group_size(X, Y, Z))) qualifier is used to declare the work-group size for kernel in the program source.");
+        break;
+    case -55:
+        printf("CL_INVALID_WORK_ITEM_SIZE        if the number of work-items specified in any of local_work_size[0], … local_work_size[work_dim – 1] is greater than the corresponding values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[0], …. CL_DEVICE_MAX_WORK_ITEM_SIZES[work_dim – 1].");
+        break;
+    case -56:
+        printf("CL_INVALID_GLOBAL_OFFSET        if the value specified in global_work_size + the corresponding values in global_work_offset for any dimensions is greater than the sizeof(size_t) for the device on which the kernel execution will be enqueued.");
+        break;
+    case -57:
+        printf("CL_INVALID_EVENT_WAIT_LIST        if event_wait_list is NULL and num_events_in_wait_list > 0, or event_wait_list is not NULL and num_events_in_wait_list is 0, or if event objects in event_wait_list are not valid events.");
+        break;
+    case -58:
+        printf("CL_INVALID_EVENT        if event objects specified in event_list are not valid event objects.");
+        break;
+    case -59:
+        printf("CL_INVALID_OPERATION        if interoperability is specified by setting CL_CONTEXT_ADAPTER_D3D9_KHR, CL_CONTEXT_ADAPTER_D3D9EX_KHR or CL_CONTEXT_ADAPTER_DXVA_KHR to a non-NULL value, and interoperability with another graphics API is also specified. (only if the cl_khr_dx9_media_sharing extension is supported).");
+        break;
+    case -60:
+        printf("CL_INVALID_GL_OBJECT        if texture is not a GL texture object whose type matches texture_target, if the specified miplevel of texture is not defined, or if the width or height of the specified miplevel is zero.");
+        break;
+    case -61:
+        printf("CL_INVALID_BUFFER_SIZE    clCreateBuffer, clCreateSubBuffer    if size is 0.Implementations may return CL_INVALID_BUFFER_SIZE if size is greater than the CL_DEVICE_MAX_MEM_ALLOC_SIZE value specified in the table of allowed values for param_name for clGetDeviceInfo for all devices in context.");
+        break;
+    case -62:
+        printf("CL_INVALID_MIP_LEVEL    OpenGL-functions    if miplevel is greater than zero and the OpenGL implementation does not support creating from non-zero mipmap levels.");
+        break;
+    case -63:
+        printf("CL_INVALID_GLOBAL_WORK_SIZE        if global_work_size is NULL, or if any of the values specified in global_work_size[0], …global_work_size [work_dim – 1] are 0 or exceed the range given by the sizeof(size_t) for the device on which the kernel execution will be enqueued.");
+        break;
+    case -64:
+        printf("CL_INVALID_PROPERTY    clCreateContext    Vague error, depends on the function");
+        break;
+    case -65:
+        printf("CL_INVALID_IMAGE_DESCRIPTOR    clCreateImage    if values specified in image_desc are not valid or if image_desc is NULL.");
+        break;
+    case -66:
+        printf("CL_INVALID_COMPILER_OPTIONS    clCompileProgram    if the compiler options specified by options are invalid.");
+        break;
+    case -67:
+        printf("CL_INVALID_LINKER_OPTIONS    clLinkProgram    if the linker options specified by options are invalid.");
+        break;
+    case -68:
+        printf("CL_INVALID_DEVICE_PARTITION_COUNT    clCreateSubDevices    if the partition name specified in properties is CL_DEVICE_PARTITION_BY_COUNTS and the number of sub-devices requested exceeds CL_DEVICE_PARTITION_MAX_SUB_DEVICES or the total number of compute units requested exceeds CL_DEVICE_PARTITION_MAX_COMPUTE_UNITS for in_device, or the number of compute units requested for one or more sub-devices is less than zero or the number of sub-devices requested exceeds CL_DEVICE_PARTITION_MAX_COMPUTE_UNITS for in_device.");
+        break;
+    case -69:
+        printf("CL_INVALID_PIPE_SIZE    clCreatePipe    if pipe_packet_size is 0 or the pipe_packet_size exceeds CL_DEVICE_PIPE_MAX_PACKET_SIZE value for all devices in context or if pipe_max_packets is 0.");
+        break;
+    case -70:
+        printf("CL_INVALID_DEVICE_QUEUE    clSetKernelArg    when an argument is of type queue_t when it’s not a valid device queue object.");
+    default:
+        printf("Unknow error. Check error code.");
+    }
+    printf("\n");
+    exit(1);
 }

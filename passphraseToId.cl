@@ -21,14 +21,7 @@ uint sigma1(uint x) { return rotr(x, 6) ^ rotr(x, 11) ^ rotr(x, 25); }
 uint gamma0(uint x) { return rotr(x, 7) ^ rotr(x, 18) ^ (x >> 3); }
 uint gamma1(uint x) { return rotr(x, 17) ^ rotr(x, 19) ^ (x >> 10); }
 
-void sha256_crypt(uint *data_info, char *plain_key, uint *digest){
-    int t, gid, msg_pad;
-    int stop, mmod;
-    uint i, ulen, item, total;
-    uint W[80], temp, A,B,C,D,E,F,G,H,T1,T2;
-    uint num_keys = data_info[1];
-    int current_pad;
-    uint K[64]={
+__constant uint K[64]={
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
         0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
         0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -39,9 +32,16 @@ void sha256_crypt(uint *data_info, char *plain_key, uint *digest){
         0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
     };
 
+void sha256_crypt(const uint ulen, const char *plain_key, uint *digest){
+    int t, gid, msg_pad;
+    int stop, mmod;
+    uint i, /* ulen, */ item, total;
+    uint W[80], temp, A,B,C,D,E,F,G,H,T1,T2;
+    int current_pad;
+
     msg_pad=0;
-    ulen = data_info[2];
-    total = ulen%64>=56?2:1 + ulen/64;
+    // ulen = data_info[2];
+    total = ulen%64>=56 ? 2 : 1 + ulen/64;
     digest[0] = H0; digest[1] = H1; digest[2] = H2; digest[3] = H3; digest[4] = H4; digest[5] = H5; digest[6] = H6; digest[7] = H7;
     for(item=0; item<total; item++) {
         A = digest[0]; B = digest[1]; C = digest[2]; D = digest[3]; E = digest[4]; F = digest[5]; G = digest[6]; H = digest[7];
@@ -186,24 +186,14 @@ inline void set(LL10 out, int in) {
  * first multiply it by one to reduce it.
  */
 inline void add(LL10 xy, LL10 x, LL10 y) {
-    xy[0] = x[0] + y[0];	xy[1] = x[1] + y[1];
-    xy[2] = x[2] + y[2];	xy[3] = x[3] + y[3];
-    xy[4] = x[4] + y[4];	xy[5] = x[5] + y[5];
-    xy[6] = x[6] + y[6];	xy[7] = x[7] + y[7];
-    xy[8] = x[8] + y[8];	xy[9] = x[9] + y[9];
+    #pragma unroll
+    for (int i=0; i<10; i++) { xy[i] = x[i] + y[i]; }
 }
 inline void sub(LL10 xy, LL10 x, LL10 y) {
-    xy[0] = x[0] - y[0];	xy[1] = x[1] - y[1];
-    xy[2] = x[2] - y[2];	xy[3] = x[3] - y[3];
-    xy[4] = x[4] - y[4];	xy[5] = x[5] - y[5];
-    xy[6] = x[6] - y[6];	xy[7] = x[7] - y[7];
-    xy[8] = x[8] - y[8];	xy[9] = x[9] - y[9];
+    #pragma unroll
+    for (int i=0; i<10; i++) { xy[i] = x[i] - y[i]; }
 }
 
-/* Multiply a number by a small integer in range -185861411 .. 185861411.
- * The output is in reduced form, the input x need not be.  x and xy may point
- * to the same buffer.
- */
 void mul_small(LL10 xy, LL10 x, LL y) {
     LL t;
     t = (x[8]*y);
@@ -230,10 +220,6 @@ void mul_small(LL10 xy, LL10 x, LL y) {
     xy[8] = (t & P26);
     xy[9] += (t >> 26);
 }
-
-/* Multiply two numbers.  The output is in reduced form, the inputs need not
- * be.
- */
 
 void mul(LL10 xy, LL10 x, LL10 y) {
     LL t;
@@ -273,7 +259,6 @@ void mul(LL10 xy, LL10 x, LL10 y) {
     xy[9] += (t >> 26);
 }
 
-/* Square a number.  Optimization of  mul25519(x2, x, x)  */
 void sqr(LL10 x2, LL10 x) {
     LL x_0=x[0], x_1=x[1], x_2=x[2], x_3=x[3], x_4=x[4],  x_5=x[5], x_6=x[6], x_7=x[7], x_8=x[8], x_9=x[9];
     LL t;
@@ -302,99 +287,77 @@ void sqr(LL10 x2, LL10 x) {
     x2[9] += (t >> 26);
 }
 
-/* Calculates a reciprocal.  The output is in reduced form, the inputs need not
- * be.  Simply calculates  y = x^(p-2)  so it's not too fast.
- * When sqrtassist is true, it instead calculates y = x^((p-5)/8)
- */
 void recip(LL10 y, LL10 x, int sqrtassist) {
     LL t0[10], t1[10], t2[10], t3[10], t4[10];
     int i;
-    /* the chain for x^(2^255-21) is straight from djb's implementation */
-    sqr(t1, x);	/*  2 == 2 * 1	*/
-    sqr(t2, t1);	/*  4 == 2 * 2	*/
-    sqr(t0, t2);	/*  8 == 2 * 4	*/
-    mul(t2, t0, x);	/*  9 == 8 + 1	*/
-    mul(t0, t2, t1);	/* 11 == 9 + 2	*/
-    sqr(t1, t0);	/* 22 == 2 * 11	*/
-    mul(t3, t1, t2);	/* 31 == 22 + 9
-                == 2^5   - 2^0	*/
-    sqr(t1, t3);	/* 2^6   - 2^1	*/
-    sqr(t2, t1);	/* 2^7   - 2^2	*/
-    sqr(t1, t2);	/* 2^8   - 2^3	*/
-    sqr(t2, t1);	/* 2^9   - 2^4	*/
-    sqr(t1, t2);	/* 2^10  - 2^5	*/
-    mul(t2, t1, t3);	/* 2^10  - 2^0	*/
-    sqr(t1, t2);	/* 2^11  - 2^1	*/
-    sqr(t3, t1);	/* 2^12  - 2^2	*/
+    sqr(t1, x);
+    sqr(t2, t1);
+    sqr(t0, t2);
+    mul(t2, t0, x);
+    mul(t0, t2, t1);
+    sqr(t1, t0);
+    mul(t3, t1, t2);
+    sqr(t1, t3);
+    sqr(t2, t1);
+    sqr(t1, t2);
+    sqr(t2, t1);
+    sqr(t1, t2);
+    mul(t2, t1, t3);
+    sqr(t1, t2);
+    sqr(t3, t1);
     for (i = 1; i < 5; i++) {
         sqr(t1, t3);
         sqr(t3, t1);
-    } /* t3 */		/* 2^20  - 2^10	*/
-    mul(t1, t3, t2);	/* 2^20  - 2^0	*/
-    sqr(t3, t1);	/* 2^21  - 2^1	*/
-    sqr(t4, t3);	/* 2^22  - 2^2	*/
+    }
+    mul(t1, t3, t2);
+    sqr(t3, t1);
+    sqr(t4, t3);
     for (i = 1; i < 10; i++) {
         sqr(t3, t4);
         sqr(t4, t3);
-    } /* t4 */		/* 2^40  - 2^20	*/
-    mul(t3, t4, t1);	/* 2^40  - 2^0	*/
+    }
+    mul(t3, t4, t1);
     for (i = 0; i < 5; i++) {
         sqr(t1, t3);
         sqr(t3, t1);
-    } /* t3 */		/* 2^50  - 2^10	*/
-    mul(t1, t3, t2);	/* 2^50  - 2^0	*/
-    sqr(t2, t1);	/* 2^51  - 2^1	*/
-    sqr(t3, t2);	/* 2^52  - 2^2	*/
+    }
+    mul(t1, t3, t2);
+    sqr(t2, t1);
+    sqr(t3, t2);
     for (i = 1; i < 25; i++) {
         sqr(t2, t3);
         sqr(t3, t2);
-    } /* t3 */		/* 2^100 - 2^50 */
-    mul(t2, t3, t1);	/* 2^100 - 2^0	*/
-    sqr(t3, t2);	/* 2^101 - 2^1	*/
-    sqr(t4, t3);	/* 2^102 - 2^2	*/
+    }
+    mul(t2, t3, t1);
+    sqr(t3, t2);
+    sqr(t4, t3);
     for (i = 1; i < 50; i++) {
         sqr(t3, t4);
         sqr(t4, t3);
-    } /* t4 */		/* 2^200 - 2^100 */
-    mul(t3, t4, t2);	/* 2^200 - 2^0	*/
+    }
+    mul(t3, t4, t2);
     for (i = 0; i < 25; i++) {
         sqr(t4, t3);
         sqr(t3, t4);
-    } /* t3 */		/* 2^250 - 2^50	*/
-    mul(t2, t3, t1);	/* 2^250 - 2^0	*/
-    sqr(t1, t2);	/* 2^251 - 2^1	*/
-    sqr(t2, t1);	/* 2^252 - 2^2	*/
+    }
+    mul(t2, t3, t1);
+    sqr(t1, t2);
+    sqr(t2, t1);
     // if (sqrtassist!=0) {
-    //     mul(y, x, t2);	/* 2^252 - 3 */
+    //     mul(y, x, t2);
     // } else {
-        sqr(t1, t2);	/* 2^253 - 2^3	*/
-        sqr(t2, t1);	/* 2^254 - 2^4	*/
-        sqr(t1, t2);	/* 2^255 - 2^5	*/
-        mul(y, t1, t0); /* 2^255 - 21	*/
+        sqr(t1, t2);
+        sqr(t2, t1);
+        sqr(t1, t2);
+        mul(y, t1, t0);
     // }
 }
 
-
-
-/********************* Elliptic curve *********************/
-
-/* y^2 = x^3 + 486662 x^2 + x  over GF(2^255-19) */
-
-/* t1 = ax + az
- * t2 = ax - az
- */
 inline void mont_prep(LL10 t1, LL10 t2, LL10 ax, LL10 az) {
     add(t1, ax, az);
     sub(t2, ax, az);
 }
 
-/* A = P + Q   where
- *  X(A) = ax/az
- *  X(P) = (t1+t2)/(t1-t2)
- *  X(Q) = (t3+t4)/(t3-t4)
- *  X(P-Q) = dx
- * clobbers t1 and t2, preserves t3 and t4
- */
 inline void mont_add(LL10 t1, LL10 t2, LL10 t3, LL10 t4, LL10 ax, LL10 az, LL10 dx) {
     mul(ax, t2, t3);
     mul(az, t1, t4);
@@ -405,11 +368,6 @@ inline void mont_add(LL10 t1, LL10 t2, LL10 t3, LL10 t4, LL10 ax, LL10 az, LL10 
     mul(az, t1, dx);
 }
 
-/* B = 2 * Q   where
- *  X(B) = bx/bz
- *  X(Q) = (t3+t4)/(t3-t4)
- * clobbers t1 and t2, preserves t3 and t4
- */
 inline void mont_dbl(LL10 t1, LL10 t2, LL10 t3, LL10 t4, LL10 bx, LL10 bz) {
     sqr(t1, t3);
     sqr(t2, t4);
@@ -420,9 +378,6 @@ inline void mont_dbl(LL10 t1, LL10 t2, LL10 t3, LL10 t4, LL10 bx, LL10 bz) {
     mul(bz, t1, t2);
 }
 
-/* Y^2 = X^3 + 486662 X^2 + X
- * t is a temporary
- */
 void x_to_y2(LL10 t, LL10 y2, LL10 x) {
     sqr(t, x);
     mul_small(y2, x, 486662);
@@ -431,7 +386,6 @@ void x_to_y2(LL10 t, LL10 y2, LL10 x) {
     mul(y2, t, x);
 }
 
-/* P = kG   and  s = sign(P)/k  */
 void curve25519_c_keygen(BYTE *Px, BYTE *k) {
     LL dx[10], t1[10], t2[10], t3[10], t4[10];
     LL x[2][10], z[2][10];
@@ -459,7 +413,7 @@ void curve25519_c_keygen(BYTE *Px, BYTE *k) {
             LL10 bz = z[bit1];
 
             /* a' = a + b */
-            /* b' = 2 b	*/
+            /* b' = 2 b    */
             mont_prep(t1, t2, ax, az);
             mont_prep(t3, t4, bx, bz);
             mont_add(t1, t2, t3, t4, ax, az, dx);
@@ -472,26 +426,29 @@ void curve25519_c_keygen(BYTE *Px, BYTE *k) {
     pack(dx, Px);
 }
 
-__kernel void process (__global uint *data_info2,__global char *plain_key2,  __global uint *digest2) {
-	size_t const thread = get_global_id (0);
-	uchar privateKey[32];
+__kernel void process (__global const uint *passLength, __global char *plain_key2,  __global uint *digest2) {
+    size_t const thread = get_global_id (0);
+    uchar privateKey[32];
+    uchar publicKey[32];
     uint passwordHash[8];
     uint fullID[8];
-    uint internalDataInfo[3];
-    uint secondDataInfo[3];
-    char internalPassword[81];
+    char internalPassword[120];
+    uint passphraseLength = passLength[0];
 
-    internalDataInfo[0]=data_info2[0];
-    internalDataInfo[1]=data_info2[1];
-    internalDataInfo[2]=data_info2[2];
-    for (size_t i = 0; i <= data_info2[2]; i++) {
-        internalPassword[i] = plain_key2[i];
+    if (passphraseLength > 120) {
+        return;
     }
-    sha256_crypt(internalDataInfo, internalPassword, passwordHash);
+
+    for (size_t i = 0; i < passphraseLength; i++) {
+        internalPassword[i] = *(plain_key2 + passphraseLength * thread + i);
+    }
+    // NOTE This function for sha256 returns wrong values if lenght is greater of equal of 56.
+    sha256_crypt(passphraseLength, internalPassword, passwordHash);
+    #pragma unroll
     for (size_t i = 0; i < 32; i++) {
         // toggle endianess and split bytes
-		privateKey[i] = (passwordHash[i/4] >> ((3 - (i%4))*8)) & (0xFF);
-	}
+        privateKey[i] = (passwordHash[i/4] >> ((3 - (i%4))*8)) & (0xFF);
+    }
     // clamp hash to get private key
     privateKey[0] &= 0xF8;
     privateKey[31] &= 0x7F;
@@ -501,26 +458,22 @@ __kernel void process (__global uint *data_info2,__global char *plain_key2,  __g
     //             digest2[i/4]=privateKey[i] | privateKey[i+1] << 8 | privateKey[i+2] << 16 | privateKey[i+3] << 24;
     // }
     // return;
-    uchar publicKey[32];
     curve25519_c_keygen(publicKey, privateKey);
     // for (size_t i = 0; i < 32; i+=4) {
     //             digest2[i/4]=publicKey[i] | publicKey[i+1] << 8 | publicKey[i+2] << 16 | publicKey[i+3] << 24;
     //     }
     // return;
-    secondDataInfo[0]=data_info2[0];
-    secondDataInfo[1]=data_info2[1];
-    secondDataInfo[2]=32;
     // for (size_t i = 0; i < 32; i++) {
-	//    digest2[i] = (passwordHash[i/4] >> ((i%4)*8)) & (0xFF);
-	// }
+    //    digest2[i] = (passwordHash[i/4] >> ((i%4)*8)) & (0xFF);
+    // }
 
-    sha256_crypt(secondDataInfo, (char *)publicKey, fullID);
+    sha256_crypt(32, (char *)publicKey, fullID);
 
-    digest2[0] = (fullID[0] & 0xff) << 24 |
+    digest2[ 8* thread ] = (fullID[0] & 0xff) << 24 |
         (fullID[0] & 0xff00) << 8 |
         (fullID[0] & 0xff0000) >> 8 |
         (fullID[0] & 0xff000000) >> 24;
-    digest2[1] = (fullID[1] & 0xff) << 24 |
+    digest2[ 8* thread + 1] = (fullID[1] & 0xff) << 24 |
         (fullID[1] & 0xff00) << 8 |
         (fullID[1] & 0xff0000) >> 8 |
         (fullID[1] & 0xff000000) >> 24;
