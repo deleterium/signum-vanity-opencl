@@ -1,4 +1,4 @@
-#define batchSize 128
-#define secretBufferSize 77
+#define batchSize 12800
+#define secretBufferSize 64
 
-#define roundsToPrint 500
+#define roundsToPrint 5

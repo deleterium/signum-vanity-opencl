@@ -52,15 +52,13 @@ void gpuSolver(char* input, unsigned long * result) {
     datai[1] = 0;
     datai[2] = 0;
 
-    ret = clEnqueueWriteBuffer(command_queue, data_info, CL_TRUE, 0, sizeof(unsigned int) * 3, datai, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(command_queue, data_info, CL_FALSE, 0, sizeof(unsigned int) * 3, datai, 0, NULL, NULL);
     check_error(ret, 50);
-    ret = clEnqueueWriteBuffer(command_queue, buffer_keys, CL_TRUE, 0, secretBufferSize * batchSize, input, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(command_queue, buffer_keys, CL_FALSE, 0, secretBufferSize * batchSize, input, 0, NULL, NULL);
     check_error(ret, 51);
     ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &global_work_size, &local_work_size, 0, NULL, NULL);
     check_error(ret, 52);
 
-    ret = clFinish(command_queue);
-    check_error(ret, 53);
     // read hashes
     ret = clEnqueueReadBuffer(command_queue, buffer_out, CL_TRUE, 0, sizeof(cl_ulong) * batchSize, partial_hashes, 0, NULL, NULL);
     check_error(ret, 54);
