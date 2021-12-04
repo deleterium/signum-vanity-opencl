@@ -18,8 +18,8 @@ static cl_command_queue command_queue;
 
 
 static cl_mem pinned_partial_hashes, buffer_out, buffer_keys, data_info;
-static cl_ulong *partial_hashes;
-static unsigned int datai[3];
+static cl_ulong *calculatedIds;
+static unsigned int passLengthArr[3];
 
 static size_t global_work_size=batchSize;
 static size_t local_work_size=1;
@@ -47,25 +47,25 @@ void gpuInit(void) {
     create_clobj();
 }
 
-void gpuSolver(char* input, unsigned long * result) {
-    datai[0] = secretBufferSize;
-    datai[1] = 0;
-    datai[2] = 0;
+void gpuSolver(char* inputBatch, unsigned long * resultBatch) {
+    passLengthArr[0] = secretBufferSize;
+    passLengthArr[1] = 0;
+    passLengthArr[2] = 0;
 
-    ret = clEnqueueWriteBuffer(command_queue, data_info, CL_FALSE, 0, sizeof(unsigned int) * 3, datai, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(command_queue, data_info, CL_FALSE, 0, sizeof(unsigned int) * 3, passLengthArr, 0, NULL, NULL);
     check_error(ret, 50);
-    ret = clEnqueueWriteBuffer(command_queue, buffer_keys, CL_FALSE, 0, secretBufferSize * batchSize, input, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(command_queue, buffer_keys, CL_FALSE, 0, secretBufferSize * batchSize, inputBatch, 0, NULL, NULL);
     check_error(ret, 51);
     ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &global_work_size, &local_work_size, 0, NULL, NULL);
     check_error(ret, 52);
 
     // read hashes
-    ret = clEnqueueReadBuffer(command_queue, buffer_out, CL_TRUE, 0, sizeof(cl_ulong) * batchSize, partial_hashes, 0, NULL, NULL);
+    ret = clEnqueueReadBuffer(command_queue, buffer_out, CL_TRUE, 0, sizeof(cl_ulong) * batchSize, calculatedIds, 0, NULL, NULL);
     check_error(ret, 54);
 
     for(int i=0; i<batchSize; i++) {
-        // printf("%d:: %lx\n",i, partial_hashes[i]);
-        result[i] = partial_hashes[i];
+        // printf("%d:: %lx\n",i, calculatedIds[i]);
+        resultBatch[i] = calculatedIds[i];
     }
 }
 
@@ -85,7 +85,7 @@ void create_clobj() {
     cl_int errorCode;
     pinned_partial_hashes = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, sizeof(cl_ulong) * batchSize, NULL, &ret);
     check_error(ret,107);
-    partial_hashes = (cl_ulong *) clEnqueueMapBuffer(command_queue, pinned_partial_hashes, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_ulong) * batchSize, 0, NULL, NULL, &ret);
+    calculatedIds = (cl_ulong *) clEnqueueMapBuffer(command_queue, pinned_partial_hashes, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_ulong) * batchSize, 0, NULL, NULL, &ret);
     check_error(ret,108);
 
     data_info = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(unsigned int) * 3, NULL, &errorCode);
@@ -309,7 +309,7 @@ void check_error(cl_int error, int position) {
     case -70:
         printf("CL_INVALID_DEVICE_QUEUE    clSetKernelArg    when an argument is of type queue_t when it’s not a valid device queue object.");
     default:
-        printf("Unknow error. Check error code.");
+        printf("Unknow error. Check error code: %d.", error);
     }
     printf("\n");
     exit(1);
