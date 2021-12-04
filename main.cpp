@@ -1,11 +1,11 @@
-//#define MDEBUG
+// #define MDEBUG
 
 #include "programConstants.h"
 #include "gpu.h"
+#include "ed25519-donna/ed25519.h"
+#include <openssl/sha.h>
 #include <time.h>
 #include <sys/time.h>
-
-#define roundsToPrint 500
 
 void randstring(char * buffer, size_t length) {
     if (length) {
@@ -26,6 +26,35 @@ void incSecret(char * secret, size_t position) {
     secret[position] += 1;
 }
 
+unsigned long hashToId(unsigned char * bytes) {
+    unsigned long retVal = bytes[0];
+    retVal |= ((long) bytes[1]) << 8;
+    retVal |= ((long) bytes[2]) << 16;
+    retVal |= ((long) bytes[3]) << 24;
+    retVal |= ((long) bytes[4]) << 32;
+    retVal |= ((long) bytes[5]) << 40;
+    retVal |= ((long) bytes[6]) << 48;
+    retVal |= ((long) bytes[7]) << 56;
+    return retVal;
+}
+
+void cpuSolver(char* input, unsigned long * result) {
+    unsigned char publicKey[SHA256_DIGEST_LENGTH];
+    unsigned char privateKey[SHA256_DIGEST_LENGTH];
+    unsigned char fullId[SHA256_DIGEST_LENGTH];
+    SHA256_CTX ctx;
+
+    for (int i=0; i< batchSize; i++) {
+        SHA256_Init(&ctx);
+        SHA256_Update(&ctx, input + secretBufferSize*i, secretBufferSize);
+        SHA256_Final(privateKey, &ctx);
+        curved25519_scalarmult_basepoint(publicKey, privateKey);
+        SHA256_Init(&ctx);
+        SHA256_Update(&ctx, publicKey, SHA256_DIGEST_LENGTH);
+        SHA256_Final(fullId, &ctx);
+        result[i] = hashToId(fullId);
+    }
+}
 
 int main() {
     unsigned long ID[batchSize];
@@ -36,6 +65,7 @@ int main() {
 
     srand(time(NULL) * 80 + 34634);
     bool end = false;
+    bool useGpu = true;
 
     int i;
 
@@ -47,13 +77,14 @@ int main() {
 #else
     i=0;
 #endif
-
     for (; i < batchSize; i++) {
         randstring(&secret[secretBufferSize*i], secretBufferSize);
     }
 
     // Remember to hardcode batchSize at programConstants.h
-    gpuInit();
+    if (useGpu) {
+        gpuInit();
+    }
 
     printf("Searching...\n");
 
@@ -65,7 +96,11 @@ int main() {
             incSecret(secret+secretBufferSize*i, 0);
         }
 #endif
-        gpuSolver(secret, ID);
+        if (useGpu) {
+            gpuSolver(secret, ID);
+        } else {
+            cpuSolver(secret, ID);
+        }
         ++rounds;
         if ( (rounds % roundsToPrint) == 0L) {
             gettimeofday(&tend, NULL);
@@ -77,7 +112,7 @@ int main() {
             gettimeofday(&tstart, NULL);
         }
         for (i=0; i< batchSize; i++) {
-            if (ID[i] > 0xffff000000000000) {
+            if (ID[i] > 0xffffff0000000000) {
                 end = true;
                 break;
             }

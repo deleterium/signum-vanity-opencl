@@ -73,9 +73,9 @@ void gpuSolver(char* input, unsigned long * result) {
 
 void load_source() {
     FILE *fp;
-    fp = fopen("passphraseToId2.cl", "r");
+    fp = fopen("passphraseToId.cl", "r");
     if (!fp) {
-        fprintf(stderr, "Failed to load kernel.\n");
+        fprintf(stderr, "Failed to load kernel file.\n");
         exit(1);
     }
     source_str = (char*)malloc(MAX_SOURCE_SIZE);
