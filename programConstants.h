@@ -1,2 +1,2 @@
 #define batchSize 128
-#define secretBufferSize 55
+#define secretBufferSize 77

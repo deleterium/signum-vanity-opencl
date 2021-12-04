@@ -1,10 +1,5 @@
 #include "programConstants.h"
-#include "sha256.h"
-// #pragma OPENCL EXTENSION cl_intel_printf : enable
-// #pragma OPENCL EXTENSION cl_amd_printf : enable
-// #pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
-
-void check_error(cl_int error, int position);
+#include "gpu.h"
 
 static cl_platform_id platform_id = NULL;
 static cl_device_id device_id = NULL;
@@ -22,10 +17,8 @@ static cl_kernel kernel;
 static cl_command_queue command_queue;
 
 
-static cl_mem /* pinned_saved_keys, */ pinned_partial_hashes, buffer_out, buffer_keys, data_info;
-static cl_uint *partial_hashes;
-// static cl_uint *res_hashes;
-/* static char *saved_plain; */
+static cl_mem pinned_partial_hashes, buffer_out, buffer_keys, data_info;
+static cl_ulong *partial_hashes;
 static unsigned int datai[3];
 
 static size_t global_work_size=batchSize;
@@ -36,8 +29,8 @@ void load_source();
 void createDevice();
 void createkernel();
 void create_clobj();
+void check_error(cl_int error, int position);
 
-void crypt_all();
 
 void printBuffer(char* buffer, char* description) {
     printf("%s\n",description);
@@ -47,19 +40,17 @@ void printBuffer(char* buffer, char* description) {
     printf("\n");
 }
 
-void sha256_init(void) {
+void gpuInit(void) {
     load_source();
     createDevice();
     createkernel();
     create_clobj();
 }
 
-void sha256_crypt(char* input, unsigned long * result) {
-    int i;
+void gpuSolver(char* input, unsigned long * result) {
     datai[0] = secretBufferSize;
     datai[1] = 0;
     datai[2] = 0;
-    // memcpy(saved_plain, input, secretBufferSize * batchSize);
 
     ret = clEnqueueWriteBuffer(command_queue, data_info, CL_TRUE, 0, sizeof(unsigned int) * 3, datai, 0, NULL, NULL);
     check_error(ret, 50);
@@ -71,19 +62,18 @@ void sha256_crypt(char* input, unsigned long * result) {
     ret = clFinish(command_queue);
     check_error(ret, 53);
     // read hashes
-    ret = clEnqueueReadBuffer(command_queue, buffer_out, CL_TRUE, 0, sizeof(cl_uint) * SHA256_RESULT_SIZE * batchSize, partial_hashes, 0, NULL, NULL);
+    ret = clEnqueueReadBuffer(command_queue, buffer_out, CL_TRUE, 0, sizeof(cl_ulong) * batchSize, partial_hashes, 0, NULL, NULL);
     check_error(ret, 54);
 
-    for(i=0; i<batchSize; i++) {
-        // printf("%d:: %x %x %x %x %x %x %x %x\n",i, partial_hashes[8*i], partial_hashes[8*i+1], partial_hashes[8*i+2], partial_hashes[8*i+3], partial_hashes[8*i+4], partial_hashes[8*i+5], partial_hashes[8*i+6], partial_hashes[8*i+7]);
-        result[i] = (unsigned long) partial_hashes[8*i] | (unsigned long) partial_hashes[8*i+1] << 32;
+    for(int i=0; i<batchSize; i++) {
+        // printf("%d:: %lx\n",i, partial_hashes[i]);
+        result[i] = partial_hashes[i];
     }
 }
 
 void load_source() {
     FILE *fp;
-
-    fp = fopen("passphraseToId.cl", "r");
+    fp = fopen("passphraseToId2.cl", "r");
     if (!fp) {
         fprintf(stderr, "Failed to load kernel.\n");
         exit(1);
@@ -95,22 +85,16 @@ void load_source() {
 
 void create_clobj() {
     cl_int errorCode;
-    // pinned_saved_keys = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, (secretBufferSize)* batchSize, NULL, &ret);
-    // saved_plain = (char*)clEnqueueMapBuffer(command_queue, pinned_saved_keys, CL_TRUE, CL_MAP_WRITE | CL_MAP_READ, 0, (secretBufferSize)*batchSize, 0, NULL, NULL, &ret);
-    // memset(saved_plain, 0, (secretBufferSize)*batchSize);
-    // // res_hashes = (cl_uint *)malloc(sizeof(cl_uint) * SHA256_RESULT_SIZE);
-    // // memset(res_hashes, 0, sizeof(cl_uint) * SHA256_RESULT_SIZE);
-    pinned_partial_hashes = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, sizeof(cl_uint) * SHA256_RESULT_SIZE* batchSize, NULL, &ret);
+    pinned_partial_hashes = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, sizeof(cl_ulong) * batchSize, NULL, &ret);
     check_error(ret,107);
-    partial_hashes = (cl_uint *) clEnqueueMapBuffer(command_queue, pinned_partial_hashes, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_uint) * SHA256_RESULT_SIZE* batchSize, 0, NULL, NULL, &ret);
+    partial_hashes = (cl_ulong *) clEnqueueMapBuffer(command_queue, pinned_partial_hashes, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_ulong) * batchSize, 0, NULL, NULL, &ret);
     check_error(ret,108);
-    // memset(partial_hashes, 0, sizeof(cl_uint) * SHA256_RESULT_SIZE* batchSize);
 
     data_info = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(unsigned int) * 3, NULL, &errorCode);
     check_error(errorCode,109);
     buffer_keys = clCreateBuffer(context, CL_MEM_READ_ONLY, (secretBufferSize) * batchSize, NULL, &errorCode);
     check_error(errorCode,107);
-    buffer_out = clCreateBuffer(context, CL_MEM_WRITE_ONLY , sizeof(cl_uint) * SHA256_RESULT_SIZE * batchSize, NULL, &errorCode);
+    buffer_out = clCreateBuffer(context, CL_MEM_WRITE_ONLY , sizeof(cl_ulong) * batchSize, NULL, &errorCode);
     check_error(errorCode,108);
 
     errorCode=clSetKernelArg(kernel, 0, sizeof(data_info), (void *) &data_info);
@@ -122,14 +106,10 @@ void create_clobj() {
 }
 
 void createDevice() {
-    check_error(
-        clGetPlatformIDs(1, &platform_id, &ret_num_platforms),
-        140
-    );
-    check_error(
-        clGetDeviceIDs( platform_id, CL_DEVICE_TYPE_ALL, 1, &device_id, &ret_num_devices),
-        141
-    );
+    ret = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
+    check_error(ret, 140);
+    ret = clGetDeviceIDs( platform_id, CL_DEVICE_TYPE_ALL, 1, &device_id, &ret_num_devices),
+    check_error(ret, 141);
     context = clCreateContext( NULL, 1, &device_id, NULL, NULL, &ret);
     check_error(ret, 142);
 }

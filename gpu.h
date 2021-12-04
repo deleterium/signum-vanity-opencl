@@ -30,8 +30,8 @@
 extern "C" {
 #endif
 
-void sha256_init(void);
-void sha256_crypt(char*, unsigned long *);
+void gpuInit(void);
+void gpuSolver(char*, unsigned long *);
 
 #ifdef __cplusplus
 }
