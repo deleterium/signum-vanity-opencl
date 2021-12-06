@@ -8,9 +8,13 @@
 #include <openssl/sha.h>
 #include <sys/time.h>
 
+#include "globalTypes.h"
+#include "argumentsParser.h"
 #include "programConstants.h"
 #include "gpu.h"
 #include "ed25519-donna/ed25519.h"
+
+struct CONFIG GlobalConfig;
 
 /**
  * Creates a random string inside buffer, with length size. The generated
@@ -59,9 +63,9 @@ void cpuSolver(const char* passphraseBatch, unsigned long * resultBatch) {
     unsigned char fullId[SHA256_DIGEST_LENGTH];
     SHA256_CTX ctx;
 
-    for (int i=0; i< batchSize; i++) {
+    for (int i=0; i< GlobalConfig.gpuThreads; i++) {
         SHA256_Init(&ctx);
-        SHA256_Update(&ctx, passphraseBatch + secretBufferSize*i, secretBufferSize);
+        SHA256_Update(&ctx, passphraseBatch + GlobalConfig.secretLength*i, GlobalConfig.secretLength);
         SHA256_Final(privateKey, &ctx);
         curved25519_scalarmult_basepoint(publicKey, privateKey);
         SHA256_Init(&ctx);
@@ -71,33 +75,45 @@ void cpuSolver(const char* passphraseBatch, unsigned long * resultBatch) {
     }
 }
 
-int main() {
-    unsigned long ID[batchSize];
-    char secret[secretBufferSize * batchSize];
+int main(int argc, char **argv) {
+    unsigned long * ID;
+    char * secret; //[GlobalConfig.secretLength * batchSize];
     struct timeval tstart, tend;
     long seconds, micros;
     double timeInterval;
 
     srand(time(NULL) * 80 + 34634);
-    bool end = false;
-    bool useGpu = true;
-
+    unsigned long end = 0;
     int i;
 
+    argumentsParser(argc, argv);
+
+    ID = (unsigned long *) malloc(GlobalConfig.gpuThreads * sizeof(unsigned long));
+    if (ID == NULL) {
+        printf("Cannot allocate memory for result buffer\n");
+        exit(1);
+    }
+
+    secret = (char *) malloc(GlobalConfig.secretLength * GlobalConfig.gpuThreads);
+    if (ID == NULL) {
+        printf("Cannot allocate memory for passphrases buffer\n");
+        exit(1);
+    }
+
 #if MDEBUG == 1
-    memcpy(secret,                  "pWME8qhktupYnNxwhxLVr7rUB1UpXqkcaUG7aMhu6vgh6CEdZdYfadd", secretBufferSize);
-    memcpy(secret+secretBufferSize, "ly5py9cW4LBKxmvjTK0nzOdkY6a3qvaAT4Nf1P1VpqtMCOTkmJxLnzd", secretBufferSize);
-    memcpy(secret+2*secretBufferSize,"Fy5dJuXJNHCnKtlwdWnPd49H2OLq5AYxWTBuco3NTvYrM9LPWYtXRd", secretBufferSize);
+    memcpy(secret,                  "pWME8qhktupYnNxwhxLVr7rUB1UpXqkcaUG7aMhu6vgh6CEdZdYfadd", GlobalConfig.secretLength);
+    memcpy(secret+GlobalConfig.secretLength, "ly5py9cW4LBKxmvjTK0nzOdkY6a3qvaAT4Nf1P1VpqtMCOTkmJxLnzd", GlobalConfig.secretLength);
+    memcpy(secret+2*GlobalConfig.secretLength,"Fy5dJuXJNHCnKtlwdWnPd49H2OLq5AYxWTBuco3NTvYrM9LPWYtXRd", GlobalConfig.secretLength);
     i=3;
 #else
     i=0;
 #endif
-    for (; i < batchSize; i++) {
-        randstring(&secret[secretBufferSize*i], secretBufferSize);
+    for (; i < GlobalConfig.gpuThreads; i++) {
+        randstring(&secret[GlobalConfig.secretLength*i], GlobalConfig.secretLength);
     }
 
     // Remember to hardcode batchSize at programConstants.h
-    if (useGpu) {
+    if (GlobalConfig.useGpu) {
         gpuInit();
     }
 
@@ -107,11 +123,11 @@ int main() {
     gettimeofday(&tstart, NULL);
 #if MDEBUG == 0
     do {
-        for (i=0; i < batchSize; i++) {
-            incSecret(secret+secretBufferSize*i, 0);
+        for (i=0; i < GlobalConfig.gpuThreads; i++) {
+            incSecret(secret+GlobalConfig.secretLength*i, 0);
         }
 #endif
-        if (useGpu) {
+        if (GlobalConfig.useGpu) {
             gpuSolver(secret, ID);
         } else {
             cpuSolver(secret, ID);
@@ -122,23 +138,23 @@ int main() {
             seconds = (tend.tv_sec - tstart.tv_sec);
             micros = ((seconds * 1000000) + tend.tv_usec) - (tstart.tv_usec);
             timeInterval = (double)micros/1000000;
-            printf("\r %lu: %f tries/second in %f seconds", rounds*batchSize, (double)(roundsToPrint*batchSize)/ timeInterval, timeInterval);
+            printf("\r %lu: %f tries/second in %f seconds", rounds*GlobalConfig.gpuThreads, (double)(roundsToPrint*GlobalConfig.gpuThreads)/ timeInterval, timeInterval);
             fflush(stdout);
             gettimeofday(&tstart, NULL);
         }
-        for (i=0; i< batchSize; i++) {
+        for (i=0; i< GlobalConfig.gpuThreads; i++) {
             if (ID[i] > 0xffffff0000000000) {
-                end = true;
+                end = 1;
                 break;
             }
         }
 #if MDEBUG == 0
-    } while (end == false);
-    printf("\nFound in %lu rounds\n", rounds * batchSize);
-    printf("\nPassphrase: '%*.*s' id: %lu\n", secretBufferSize, secretBufferSize, secret + i*secretBufferSize, ID[i]);
+    } while (end == 0);
+    printf("\nFound in %lu rounds\n", rounds * GlobalConfig.gpuThreads);
+    printf("\nPassphrase: '%*.*s' id: %lu\n", GlobalConfig.secretLength, GlobalConfig.secretLength, secret + i*GlobalConfig.secretLength, ID[i]);
 #else
     for (i=0; i< batchSize; i++) {
-        printf("'%*.*s': %lu\n", secretBufferSize, secretBufferSize, secret + i*secretBufferSize, ID[i]);
+        printf("'%*.*s': %lu\n", GlobalConfig.secretLength, GlobalConfig.secretLength, secret + i*GlobalConfig.secretLength, ID[i]);
     }
 #endif
 }

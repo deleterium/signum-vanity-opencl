@@ -1,12 +1,12 @@
+
+#include "globalTypes.h"
 #include "programConstants.h"
 #include "gpu.h"
 
-static cl_platform_id platform_id = NULL;
-static cl_device_id device_id = NULL;
-static cl_uint ret_num_devices;
-static cl_uint ret_num_platforms;
-static cl_context context;
+extern struct CONFIG GlobalConfig;
 
+static cl_device_id * gpuDevices = NULL;
+static cl_context context;
 static cl_int ret;
 
 static char* source_str;
@@ -21,8 +21,6 @@ static cl_mem pinned_partial_hashes, buffer_out, buffer_keys, data_info;
 static cl_ulong *calculatedIds;
 static unsigned int passLengthArr[3];
 
-static size_t global_work_size=batchSize;
-static size_t local_work_size=1;
 static size_t string_len;
 
 void load_source();
@@ -34,8 +32,8 @@ void check_error(cl_int error, int position);
 
 void printBuffer(char* buffer, char* description) {
     printf("%s\n",description);
-    for (int i=0; i< batchSize; i++) {
-        printf("%*.*s\n",secretBufferSize, secretBufferSize, buffer+secretBufferSize*i);
+    for (int i=0; i< GlobalConfig.gpuThreads; i++) {
+        printf("%*.*s\n",GlobalConfig.secretLength, GlobalConfig.secretLength, buffer+GlobalConfig.secretLength*i);
     }
     printf("\n");
 }
@@ -48,22 +46,22 @@ void gpuInit(void) {
 }
 
 void gpuSolver(char* inputBatch, unsigned long * resultBatch) {
-    passLengthArr[0] = secretBufferSize;
+    passLengthArr[0] = GlobalConfig.secretLength;
     passLengthArr[1] = 0;
     passLengthArr[2] = 0;
 
     ret = clEnqueueWriteBuffer(command_queue, data_info, CL_FALSE, 0, sizeof(unsigned int) * 3, passLengthArr, 0, NULL, NULL);
     check_error(ret, 50);
-    ret = clEnqueueWriteBuffer(command_queue, buffer_keys, CL_FALSE, 0, secretBufferSize * batchSize, inputBatch, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(command_queue, buffer_keys, CL_FALSE, 0, GlobalConfig.secretLength * GlobalConfig.gpuThreads, inputBatch, 0, NULL, NULL);
     check_error(ret, 51);
-    ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &global_work_size, &local_work_size, 0, NULL, NULL);
+    ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &GlobalConfig.gpuThreads, &GlobalConfig.gpuWorkSize, 0, NULL, NULL);
     check_error(ret, 52);
 
     // read hashes
-    ret = clEnqueueReadBuffer(command_queue, buffer_out, CL_TRUE, 0, sizeof(cl_ulong) * batchSize, calculatedIds, 0, NULL, NULL);
+    ret = clEnqueueReadBuffer(command_queue, buffer_out, CL_TRUE, 0, sizeof(cl_ulong) * GlobalConfig.gpuThreads, calculatedIds, 0, NULL, NULL);
     check_error(ret, 54);
 
-    for(int i=0; i<batchSize; i++) {
+    for(int i=0; i<GlobalConfig.gpuThreads; i++) {
         // printf("%d:: %lx\n",i, calculatedIds[i]);
         resultBatch[i] = calculatedIds[i];
     }
@@ -83,16 +81,16 @@ void load_source() {
 
 void create_clobj() {
     cl_int errorCode;
-    pinned_partial_hashes = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, sizeof(cl_ulong) * batchSize, NULL, &ret);
+    pinned_partial_hashes = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, sizeof(cl_ulong) * GlobalConfig.gpuThreads, NULL, &ret);
     check_error(ret,107);
-    calculatedIds = (cl_ulong *) clEnqueueMapBuffer(command_queue, pinned_partial_hashes, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_ulong) * batchSize, 0, NULL, NULL, &ret);
+    calculatedIds = (cl_ulong *) clEnqueueMapBuffer(command_queue, pinned_partial_hashes, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_ulong) * GlobalConfig.gpuThreads, 0, NULL, NULL, &ret);
     check_error(ret,108);
 
     data_info = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(unsigned int) * 3, NULL, &errorCode);
     check_error(errorCode,109);
-    buffer_keys = clCreateBuffer(context, CL_MEM_READ_ONLY, (secretBufferSize) * batchSize, NULL, &errorCode);
+    buffer_keys = clCreateBuffer(context, CL_MEM_READ_ONLY, GlobalConfig.secretLength * GlobalConfig.gpuThreads, NULL, &errorCode);
     check_error(errorCode,107);
-    buffer_out = clCreateBuffer(context, CL_MEM_WRITE_ONLY , sizeof(cl_ulong) * batchSize, NULL, &errorCode);
+    buffer_out = clCreateBuffer(context, CL_MEM_WRITE_ONLY , sizeof(cl_ulong) * GlobalConfig.gpuThreads, NULL, &errorCode);
     check_error(errorCode,108);
 
     errorCode=clSetKernelArg(kernel, 0, sizeof(data_info), (void *) &data_info);
@@ -104,22 +102,98 @@ void create_clobj() {
 }
 
 void createDevice() {
-    ret = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
-    check_error(ret, 140);
-    ret = clGetDeviceIDs( platform_id, CL_DEVICE_TYPE_ALL, 1, &device_id, &ret_num_devices),
-    check_error(ret, 141);
-    context = clCreateContext( NULL, 1, &device_id, NULL, NULL, &ret);
+
+    /* OpenCL 1.2 data structures */
+    cl_platform_id* platforms;
+    /* OpenCL 1.1 scalar data types */
+    cl_uint platformCount, numOfDevices;
+    cl_uint deviceCount;
+    cl_uint maxComputeUnits;
+
+    char* info;
+    size_t infoSize;
+
+    // get platform count
+    clGetPlatformIDs(5, NULL, &platformCount);
+    if (GlobalConfig.gpuPlatform >= platformCount) {
+        printf("Supplied gpu-platform does not exist.\n");
+        exit(1);
+    }
+    printf("GPU platform %lu details:\n", GlobalConfig.gpuPlatform);
+
+    // get all platforms
+    platforms = (cl_platform_id*) malloc(sizeof(cl_platform_id) * platformCount);
+    clGetPlatformIDs(platformCount, platforms, NULL);
+
+    // get and print platform attribute value
+    clGetPlatformInfo(platforms[GlobalConfig.gpuPlatform], CL_PLATFORM_NAME, 0, NULL, &infoSize);
+    info = (char*) malloc(infoSize);
+    clGetPlatformInfo(platforms[GlobalConfig.gpuPlatform], CL_PLATFORM_NAME, infoSize, info, NULL);
+    printf("    Platform name: %s\n", info);
+    free(info);
+
+    // get devices count for selected platform
+    clGetDeviceIDs(platforms[GlobalConfig.gpuPlatform], CL_DEVICE_TYPE_ALL, 0, NULL, &deviceCount);
+    if (GlobalConfig.gpuDevice >= deviceCount) {
+        printf("Supplied gpu-device does not exist.\n");
+        exit(1);
+    }
+    printf("Details for device %lu:\n", GlobalConfig.gpuDevice);
+    gpuDevices = (cl_device_id*) malloc(sizeof(cl_device_id) * deviceCount);
+    clGetDeviceIDs(platforms[GlobalConfig.gpuDevice], CL_DEVICE_TYPE_ALL, deviceCount, gpuDevices, NULL);
+
+    // get and print selected device name
+    clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DEVICE_NAME, 0, NULL, &infoSize);
+    info = (char*) malloc(infoSize);
+    clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DEVICE_NAME, infoSize, info, NULL);
+    printf("    Device: %s\n", info);
+    free(info);
+
+    // print hardware device version
+    clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DEVICE_VERSION, 0, NULL, &infoSize);
+    info = (char*) malloc(infoSize);
+    clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DEVICE_VERSION, infoSize, info, NULL);
+    printf("    Hardware version: %s\n", info);
+    free(info);
+
+    // print software driver version
+    clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DRIVER_VERSION, 0, NULL, &infoSize);
+    info = (char*) malloc(infoSize);
+    clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DRIVER_VERSION, infoSize, info, NULL);
+    printf("    Software version: %s\n", info);
+    free(info);
+
+    // print c version supported by compiler for device
+    clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DEVICE_OPENCL_C_VERSION, 0, NULL, &infoSize);
+    info = (char*) malloc(infoSize);
+    clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DEVICE_OPENCL_C_VERSION, infoSize, info, NULL);
+    printf("    OpenCL C version: %s\n", info);
+    free(info);
+
+    // print parallel compute units
+    clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DEVICE_MAX_COMPUTE_UNITS,
+            sizeof(maxComputeUnits), &maxComputeUnits, NULL);
+    printf("    Parallel compute units: %d\n", maxComputeUnits);
+
+    // Create context for desired device
+    context = clCreateContext( NULL, 1, &gpuDevices[GlobalConfig.gpuDevice], NULL, NULL, &ret);
     check_error(ret, 142);
 }
 
 void createkernel() {
+
     program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
     check_error(ret, 200);
-    ret = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
+    printf("Compiling OpenCL kernel: ");
+    fflush(stdout);
+    ret = clBuildProgram(program, 1, &gpuDevices[GlobalConfig.gpuDevice], NULL, NULL, NULL);
     check_error(ret, 210);
+    printf("Done!\n");
+    fflush(stdout);
     kernel = clCreateKernel(program, "process", &ret);
     check_error(ret, 220);
-    command_queue = clCreateCommandQueue(context, device_id, 0, &ret);
+    fflush(stdout);
+    command_queue = clCreateCommandQueue(context, gpuDevices[GlobalConfig.gpuDevice], 0, &ret);
     check_error(ret, 230);
 }
 
