@@ -11,13 +11,5 @@
 
 #define MAX_SOURCE_SIZE 0x10000000
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void gpuInit(void);
 void gpuSolver(char*, unsigned long *);
-
-#ifdef __cplusplus
-}
-#endif
