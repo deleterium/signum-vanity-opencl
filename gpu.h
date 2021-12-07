@@ -12,4 +12,4 @@
 #define MAX_SOURCE_SIZE 0x10000000
 
 void gpuInit(void);
-void gpuSolver(char*, unsigned long *);
+void gpuSolver(char*, unsigned char *);

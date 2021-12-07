@@ -16,8 +16,8 @@ static cl_kernel kernel;
 static cl_command_queue command_queue;
 
 
-static cl_mem pinned_partial_hashes, buffer_out, buffer_keys, data_info;
-static cl_ulong *calculatedIds;
+static cl_mem pinnedClMemResult, clMemResult, clMemPassphrase, clMemPassLength, clMemResultMask;
+static cl_uchar *calculatedResult;
 static unsigned int passLengthArr[3];
 
 static size_t string_len;
@@ -44,25 +44,27 @@ void gpuInit(void) {
     create_clobj();
 }
 
-void gpuSolver(char* inputBatch, unsigned long * resultBatch) {
+void gpuSolver(char* inputBatch, unsigned char * resultBatch) {
     passLengthArr[0] = GlobalConfig.secretLength;
     passLengthArr[1] = 0;
     passLengthArr[2] = 0;
 
-    ret = clEnqueueWriteBuffer(command_queue, data_info, CL_FALSE, 0, sizeof(unsigned int) * 3, passLengthArr, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(command_queue, clMemPassLength, CL_FALSE, 0, sizeof(unsigned int) * 3, passLengthArr, 0, NULL, NULL);
     check_error(ret, 50);
-    ret = clEnqueueWriteBuffer(command_queue, buffer_keys, CL_FALSE, 0, GlobalConfig.secretLength * GlobalConfig.gpuThreads, inputBatch, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(command_queue, clMemResultMask, CL_FALSE, 0, sizeof(unsigned char) * RS_ADDRESS_BYTE_SIZE, GlobalConfig.mask, 0, NULL, NULL);
     check_error(ret, 51);
-    ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &GlobalConfig.gpuThreads, &GlobalConfig.gpuWorkSize, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(command_queue, clMemPassphrase, CL_FALSE, 0, GlobalConfig.secretLength * GlobalConfig.gpuThreads, inputBatch, 0, NULL, NULL);
     check_error(ret, 52);
+    ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &GlobalConfig.gpuThreads, &GlobalConfig.gpuWorkSize, 0, NULL, NULL);
+    check_error(ret, 53);
 
     // read hashes
-    ret = clEnqueueReadBuffer(command_queue, buffer_out, CL_TRUE, 0, sizeof(cl_ulong) * GlobalConfig.gpuThreads, calculatedIds, 0, NULL, NULL);
+    ret = clEnqueueReadBuffer(command_queue, clMemResult, CL_TRUE, 0, sizeof(cl_uchar) * GlobalConfig.gpuThreads, calculatedResult, 0, NULL, NULL);
     check_error(ret, 54);
 
     for(int i=0; i<GlobalConfig.gpuThreads; i++) {
-        // printf("%d:: %lx\n",i, calculatedIds[i]);
-        resultBatch[i] = calculatedIds[i];
+        // printf("%d:: %cx\n",i, calculatedResult[i]);
+        resultBatch[i] = calculatedResult[i];
     }
 }
 
@@ -80,23 +82,27 @@ void load_source() {
 
 void create_clobj() {
     cl_int errorCode;
-    pinned_partial_hashes = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, sizeof(cl_ulong) * GlobalConfig.gpuThreads, NULL, &ret);
+    pinnedClMemResult = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, sizeof(cl_uchar) * GlobalConfig.gpuThreads, NULL, &ret);
     check_error(ret,107);
-    calculatedIds = (cl_ulong *) clEnqueueMapBuffer(command_queue, pinned_partial_hashes, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_ulong) * GlobalConfig.gpuThreads, 0, NULL, NULL, &ret);
+    calculatedResult = (cl_uchar *) clEnqueueMapBuffer(command_queue, pinnedClMemResult, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_uchar) * GlobalConfig.gpuThreads, 0, NULL, NULL, &ret);
     check_error(ret,108);
 
-    data_info = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(unsigned int) * 3, NULL, &errorCode);
+    clMemPassLength = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(unsigned int) * 3, NULL, &errorCode);
     check_error(errorCode,109);
-    buffer_keys = clCreateBuffer(context, CL_MEM_READ_ONLY, GlobalConfig.secretLength * GlobalConfig.gpuThreads, NULL, &errorCode);
+    clMemPassphrase = clCreateBuffer(context, CL_MEM_READ_ONLY, GlobalConfig.secretLength * GlobalConfig.gpuThreads, NULL, &errorCode);
     check_error(errorCode,107);
-    buffer_out = clCreateBuffer(context, CL_MEM_WRITE_ONLY , sizeof(cl_ulong) * GlobalConfig.gpuThreads, NULL, &errorCode);
+    clMemResult = clCreateBuffer(context, CL_MEM_WRITE_ONLY , sizeof(cl_uchar) * GlobalConfig.gpuThreads, NULL, &errorCode);
     check_error(errorCode,108);
+    clMemResultMask = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(cl_uchar) * RS_ADDRESS_BYTE_SIZE, NULL, &errorCode);
+    check_error(errorCode,109);
 
-    errorCode=clSetKernelArg(kernel, 0, sizeof(data_info), (void *) &data_info);
+    errorCode=clSetKernelArg(kernel, 0, sizeof(clMemPassLength), (void *) &clMemPassLength);
     check_error(errorCode,110);
-    errorCode=clSetKernelArg(kernel, 1, sizeof(buffer_keys), (void *) &buffer_keys);
+    errorCode=clSetKernelArg(kernel, 1, sizeof(clMemPassphrase), (void *) &clMemPassphrase);
     check_error(errorCode,120);
-    errorCode=clSetKernelArg(kernel, 2, sizeof(buffer_out), (void *) &buffer_out);
+    errorCode=clSetKernelArg(kernel, 2, sizeof(clMemResult), (void *) &clMemResult);
+    check_error(errorCode,130);
+    errorCode=clSetKernelArg(kernel, 3, sizeof(clMemResultMask), (void *) &clMemResultMask);
     check_error(errorCode,130);
 }
 
