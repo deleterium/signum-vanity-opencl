@@ -74,3 +74,23 @@ void cpuSolver(const char* passphraseBatch, unsigned char * foundBatch) {
         foundBatch[i] = matchMask(GlobalConfig.mask, rsAccount);
     }
 }
+
+unsigned long solveOnlyOne(const char* passphrase, char* rsAddress){
+    BYTE publicKey[SHA256_DIGEST_LENGTH];
+    BYTE privateKey[SHA256_DIGEST_LENGTH];
+    BYTE fullId[SHA256_DIGEST_LENGTH];
+    BYTE rsAccount[RS_ADDRESS_BYTE_SIZE];
+    SHA256_CTX ctx;
+    unsigned long id;
+
+    SHA256_Init(&ctx);
+    SHA256_Update(&ctx, passphrase, GlobalConfig.secretLength);
+    SHA256_Final(privateKey, &ctx);
+    curved25519_scalarmult_basepoint(publicKey, privateKey);
+    SHA256_Init(&ctx);
+    SHA256_Update(&ctx, publicKey, SHA256_DIGEST_LENGTH);
+    SHA256_Final(fullId, &ctx);
+    id = hashToId(fullId);
+    idTOAccount(id, rsAddress);
+    return id;
+}

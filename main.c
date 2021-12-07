@@ -127,13 +127,22 @@ int main(int argc, char **argv) {
         }
         for (i=0; i< GlobalConfig.gpuThreads; i++) {
             if (ID[i] == 1) {
+                char rsAddress[RS_ADDRESS_STRING_SIZE];
+                unsigned long newId = solveOnlyOne(secret + i*GlobalConfig.secretLength, rsAddress);
+                printf(
+                    "\nPassphrase: '%*.*s' id: %20lu RS: %s",
+                    GlobalConfig.secretLength,
+                    GlobalConfig.secretLength,
+                    secret + i*GlobalConfig.secretLength,
+                    newId,
+                    rsAddress
+                );
+                fflush(stdout);
                 if (GlobalConfig.endless == 0) {
                     end = 1;
                     printf("\nFound in %lu tries\n", rounds * GlobalConfig.gpuThreads);
+                    break;
                 }
-                // printf("\rPassphrase: '%*.*s' id: %20lu RS: %s\n", GlobalConfig.secretLength, GlobalConfig.secretLength, secret + i*GlobalConfig.secretLength, ID[i], RSAddress);
-                printf("\rPassphrase: '%*.*s'\n", GlobalConfig.secretLength, GlobalConfig.secretLength, secret + i*GlobalConfig.secretLength);
-                fflush(stdout);
             }
         }
 #if MDEBUG == 0
