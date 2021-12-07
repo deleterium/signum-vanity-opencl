@@ -65,12 +65,6 @@ int main(int argc, char **argv) {
 
     maskToByteMask(argv[argc - 1], GlobalConfig.mask);
 
-    ID = (unsigned char *) malloc(GlobalConfig.gpuThreads * sizeof(unsigned char));
-    if (ID == NULL) {
-        printf("Cannot allocate memory for result buffer\n");
-        exit(1);
-    }
-
     secret = (char *) malloc(GlobalConfig.secretLength * GlobalConfig.gpuThreads);
     if (secret == NULL) {
         printf("Cannot allocate memory for passphrases buffer\n");
@@ -82,9 +76,9 @@ int main(int argc, char **argv) {
     }
 
     if (GlobalConfig.useGpu) {
-        gpuInit();
+        ID = gpuInit();
     } else {
-        cpuInit();
+        ID = cpuInit();
     }
 
     float halfLife = estimateTries(GlobalConfig.mask);

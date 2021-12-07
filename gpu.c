@@ -17,7 +17,6 @@ static cl_command_queue command_queue;
 
 
 static cl_mem pinnedClMemResult, clMemResult, clMemPassphrase, clMemPassLength, clMemResultMask;
-static cl_uchar *calculatedResult;
 static unsigned int passLengthArr[3];
 
 static size_t string_len;
@@ -25,23 +24,23 @@ static size_t string_len;
 void load_source();
 void createDevice();
 void createkernel();
-void create_clobj();
+unsigned char * create_clobj();
 void check_error(cl_int error, int position);
 
 
-void printBuffer(char* buffer, char* description) {
-    printf("%s\n",description);
-    for (int i=0; i< GlobalConfig.gpuThreads; i++) {
-        printf("%*.*s\n",GlobalConfig.secretLength, GlobalConfig.secretLength, buffer+GlobalConfig.secretLength*i);
-    }
-    printf("\n");
-}
+// void printBuffer(char* buffer, char* description) {
+//     printf("%s\n",description);
+//     for (int i=0; i< GlobalConfig.gpuThreads; i++) {
+//         printf("%*.*s\n",GlobalConfig.secretLength, GlobalConfig.secretLength, buffer+GlobalConfig.secretLength*i);
+//     }
+//     printf("\n");
+// }
 
-void gpuInit(void) {
+unsigned char * gpuInit(void) {
     load_source();
     createDevice();
     createkernel();
-    create_clobj();
+    return create_clobj();
 }
 
 void gpuSolver(char* inputBatch, unsigned char * resultBatch) {
@@ -59,13 +58,13 @@ void gpuSolver(char* inputBatch, unsigned char * resultBatch) {
     check_error(ret, 53);
 
     // read hashes
-    ret = clEnqueueReadBuffer(command_queue, clMemResult, CL_TRUE, 0, sizeof(cl_uchar) * GlobalConfig.gpuThreads, calculatedResult, 0, NULL, NULL);
+    ret = clEnqueueReadBuffer(command_queue, clMemResult, CL_TRUE, 0, sizeof(cl_uchar) * GlobalConfig.gpuThreads, resultBatch, 0, NULL, NULL);
     check_error(ret, 54);
 
-    for(int i=0; i<GlobalConfig.gpuThreads; i++) {
-        // printf("%d:: %cx\n",i, calculatedResult[i]);
-        resultBatch[i] = calculatedResult[i];
-    }
+    // for(int i=0; i<GlobalConfig.gpuThreads; i++) {
+    //     // printf("%d:: %cx\n",i, calculatedResult[i]);
+    //     resultBatch[i] = calculatedResult[i];
+    // }
 }
 
 void load_source() {
@@ -80,11 +79,13 @@ void load_source() {
     fclose( fp );
 }
 
-void create_clobj() {
+unsigned char * create_clobj(void) {
     cl_int errorCode;
+    unsigned char * resultBuf;
+
     pinnedClMemResult = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, sizeof(cl_uchar) * GlobalConfig.gpuThreads, NULL, &ret);
     check_error(ret,107);
-    calculatedResult = (cl_uchar *) clEnqueueMapBuffer(command_queue, pinnedClMemResult, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_uchar) * GlobalConfig.gpuThreads, 0, NULL, NULL, &ret);
+    resultBuf = (cl_uchar *) clEnqueueMapBuffer(command_queue, pinnedClMemResult, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_uchar) * GlobalConfig.gpuThreads, 0, NULL, NULL, &ret);
     check_error(ret,108);
 
     clMemPassLength = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(unsigned int) * 3, NULL, &errorCode);
@@ -104,6 +105,7 @@ void create_clobj() {
     check_error(errorCode,130);
     errorCode=clSetKernelArg(kernel, 3, sizeof(clMemResultMask), (void *) &clMemResultMask);
     check_error(errorCode,130);
+    return resultBuf;
 }
 
 void createDevice() {

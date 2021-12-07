@@ -22,7 +22,14 @@ unsigned long hashToId(const BYTE * pk) {
     return retVal;
 }
 
-void cpuInit(void) {
+unsigned char * cpuInit(void) {
+    unsigned char * resultBuffer;
+    resultBuffer = (unsigned char *) malloc(GlobalConfig.gpuThreads * sizeof(unsigned char));
+    if (resultBuffer == NULL) {
+        printf("Cannot allocate memory for result buffer\n");
+        exit(1);
+    }
+
 #ifdef LINUX
     FILE *cpuinfo = fopen("/proc/cpuinfo", "rb");
     if (cpuinfo != NULL) {
@@ -33,7 +40,7 @@ void cpuInit(void) {
                 printf("Calculating using the cpu %s", arg);
                 free(arg);
                 fclose(cpuinfo);
-                return;
+                return resultBuffer;
             }
         }
         free(arg);
@@ -41,6 +48,7 @@ void cpuInit(void) {
     }
 #endif
     printf("Calculating using the cpu...\n");
+    return resultBuffer;
 }
 
 

@@ -1,9 +1,9 @@
 
 typedef unsigned char BYTE;
 
-/** Initializes cpu (actually just prints a message) */
-void cpuInit(void);
+/** Allocate memory for result buffer and prints a message */
+unsigned char * cpuInit(void);
 
 /**
- * Transforms a batch of passphrases to ID's using the cpu */
+ * Solves a batch of passphrases to ID's using the cpu to result buffer */
 void cpuSolver(const char* passphraseBatch, unsigned char * resultBatch);
