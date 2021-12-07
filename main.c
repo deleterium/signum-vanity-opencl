@@ -7,12 +7,14 @@
 #include <time.h>
 #include <openssl/sha.h>
 #include <sys/time.h>
+#include <math.h>
 
 #include "globalTypes.h"
 #include "argumentsParser.h"
 #include "programConstants.h"
 #include "gpu.h"
 #include "ed25519-donna/ed25519.h"
+#include "ReedSalomon.h"
 
 struct CONFIG GlobalConfig;
 
@@ -75,18 +77,30 @@ void cpuSolver(const char* passphraseBatch, unsigned long * resultBatch) {
     }
 }
 
+float estimateTries(unsigned char * byteMask) {
+    float ret = 1.0;
+    for (size_t i = 0; i< BYTE_ADDRESS_SIZE; i++) {
+        if (byteMask[i] != 32) ret *= 32;
+    }
+    return (-1.0 / log10((1.0 - (1.0/ret))));
+}
+
 int main(int argc, char **argv) {
     unsigned long * ID;
-    char * secret; //[GlobalConfig.secretLength * batchSize];
+    char * secret;
     struct timeval tstart, tend;
     long seconds, micros;
     double timeInterval;
+    unsigned char desiredByteMask[17];
+    unsigned long roundsToPrint = 1;
 
     srand(time(NULL) * 80 + 34634);
     unsigned long end = 0;
     int i;
 
     argumentsParser(argc, argv);
+
+    maskToByteMask(argv[argc - 1], desiredByteMask);
 
     ID = (unsigned long *) malloc(GlobalConfig.gpuThreads * sizeof(unsigned long));
     if (ID == NULL) {
@@ -100,29 +114,26 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-#if MDEBUG == 1
-    memcpy(secret,                  "pWME8qhktupYnNxwhxLVr7rUB1UpXqkcaUG7aMhu6vgh6CEdZdYfadd", GlobalConfig.secretLength);
-    memcpy(secret+GlobalConfig.secretLength, "ly5py9cW4LBKxmvjTK0nzOdkY6a3qvaAT4Nf1P1VpqtMCOTkmJxLnzd", GlobalConfig.secretLength);
-    memcpy(secret+2*GlobalConfig.secretLength,"Fy5dJuXJNHCnKtlwdWnPd49H2OLq5AYxWTBuco3NTvYrM9LPWYtXRd", GlobalConfig.secretLength);
-    i=3;
-#else
-    i=0;
-#endif
-    for (; i < GlobalConfig.gpuThreads; i++) {
+    for (i = 0; i < GlobalConfig.gpuThreads; i++) {
         randstring(&secret[GlobalConfig.secretLength*i], GlobalConfig.secretLength);
     }
 
     // Remember to hardcode batchSize at programConstants.h
     if (GlobalConfig.useGpu) {
         gpuInit();
+    } else {
+        printf("Calculating using the cpu...\n");
     }
 
-    printf("Searching...\n");
+    float halfLife = estimateTries(desiredByteMask);
+    printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", halfLife);
 
     unsigned long rounds = 0;
+    unsigned long previousRounds = 0;
     gettimeofday(&tstart, NULL);
 #if MDEBUG == 0
     do {
+
         for (i=0; i < GlobalConfig.gpuThreads; i++) {
             incSecret(secret+GlobalConfig.secretLength*i, 0);
         }
@@ -138,20 +149,43 @@ int main(int argc, char **argv) {
             seconds = (tend.tv_sec - tstart.tv_sec);
             micros = ((seconds * 1000000) + tend.tv_usec) - (tstart.tv_usec);
             timeInterval = (double)micros/1000000;
-            printf("\r %lu: %f tries/second in %f seconds", rounds*GlobalConfig.gpuThreads, (double)(roundsToPrint*GlobalConfig.gpuThreads)/ timeInterval, timeInterval);
-            fflush(stdout);
+            unsigned long currentTries = rounds*GlobalConfig.gpuThreads;
+            if (GlobalConfig.endless == 0) {
+                printf(
+                    "\r %lu tries - %.1f%% - %.0f tries/second...",
+                    currentTries,
+                    100.0 * currentTries / halfLife,
+                    (float)((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval
+                );
+                fflush(stdout);
+            }
             gettimeofday(&tstart, NULL);
+            // adjust rounds To print
+            if (timeInterval < 0.3) {
+                roundsToPrint *= 2;
+            }
+            if (timeInterval > 1) {
+                roundsToPrint /= 2;
+                if (roundsToPrint == 0) roundsToPrint++;
+            }
+            previousRounds = rounds;
         }
         for (i=0; i< GlobalConfig.gpuThreads; i++) {
-            if (ID[i] > 0xffffff0000000000) {
-                end = 1;
-                break;
+            unsigned char rsAccount[17];
+            idTOByteAccount(ID[i],rsAccount);
+            if (matchMask(desiredByteMask, rsAccount)){
+                char RSAddress[18];
+                idTOAccount(ID[i], RSAddress);
+                if (GlobalConfig.endless == 0) {
+                    end = 1;
+                    printf("\nFound in %lu tries\n", rounds * GlobalConfig.gpuThreads);
+                }
+                printf("\rPassphrase: '%*.*s' id: %20lu RS: %s\n", GlobalConfig.secretLength, GlobalConfig.secretLength, secret + i*GlobalConfig.secretLength, ID[i], RSAddress);
+                fflush(stdout);
             }
         }
 #if MDEBUG == 0
     } while (end == 0);
-    printf("\nFound in %lu rounds\n", rounds * GlobalConfig.gpuThreads);
-    printf("\nPassphrase: '%*.*s' id: %lu\n", GlobalConfig.secretLength, GlobalConfig.secretLength, secret + i*GlobalConfig.secretLength, ID[i]);
 #else
     for (i=0; i< batchSize; i++) {
         printf("'%*.*s': %lu\n", GlobalConfig.secretLength, GlobalConfig.secretLength, secret + i*GlobalConfig.secretLength, ID[i]);

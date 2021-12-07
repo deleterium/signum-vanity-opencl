@@ -9,8 +9,8 @@ struct CONFIG {
         gpuWorkSize,
         gpuPlatform,
         gpuDevice;
-    int secretLength;
-
+    int secretLength,
+        endless;
 };
 
 #endif
