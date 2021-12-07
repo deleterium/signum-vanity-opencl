@@ -35,7 +35,7 @@ unsigned char * cpuInit(void) {
     if (cpuinfo != NULL) {
         char *arg = 0;
         size_t size = 0;
-        while(getline(&arg, &size, cpuinfo) != -1) {
+        while (getline(&arg, &size, cpuinfo) != -1) {
             if (strncmp(arg, "model name", 10) == 0) {
                 printf("Calculating using the cpu %s", arg);
                 free(arg);
@@ -51,31 +51,28 @@ unsigned char * cpuInit(void) {
     return resultBuffer;
 }
 
-
-/**
- * Transforms a batch of passphrases to ID's using the cpu */
-void cpuSolver(const char* passphraseBatch, unsigned char * foundBatch) {
+void cpuSolver(const char * passphraseBatch, unsigned char * foundBatch) {
     BYTE publicKey[SHA256_DIGEST_LENGTH];
     BYTE privateKey[SHA256_DIGEST_LENGTH];
     BYTE fullId[SHA256_DIGEST_LENGTH];
     BYTE rsAccount[RS_ADDRESS_BYTE_SIZE];
     SHA256_CTX ctx;
 
-    for (int i=0; i< GlobalConfig.gpuThreads; i++) {
+    for (int i = 0; i < GlobalConfig.gpuThreads; i++) {
         SHA256_Init(&ctx);
-        SHA256_Update(&ctx, passphraseBatch + GlobalConfig.secretLength*i, GlobalConfig.secretLength);
+        SHA256_Update(&ctx, passphraseBatch + GlobalConfig.secretLength * i, GlobalConfig.secretLength);
         SHA256_Final(privateKey, &ctx);
         curved25519_scalarmult_basepoint(publicKey, privateKey);
         SHA256_Init(&ctx);
         SHA256_Update(&ctx, publicKey, SHA256_DIGEST_LENGTH);
         SHA256_Final(fullId, &ctx);
         unsigned long id = hashToId(fullId);
-        idTOByteAccount(id,rsAccount);
+        idTOByteAccount(id, rsAccount);
         foundBatch[i] = matchMask(GlobalConfig.mask, rsAccount);
     }
 }
 
-unsigned long solveOnlyOne(const char* passphrase, char* rsAddress){
+unsigned long solveOnlyOne(const char * passphrase, char * rsAddress){
     BYTE publicKey[SHA256_DIGEST_LENGTH];
     BYTE privateKey[SHA256_DIGEST_LENGTH];
     BYTE fullId[SHA256_DIGEST_LENGTH];

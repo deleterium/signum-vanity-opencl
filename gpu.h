@@ -11,8 +11,8 @@
 
 #define MAX_SOURCE_SIZE 0x10000000
 
-/** Initializes the GPU and allocate memory for resultBuffer */
+/** Initializes the GPU and returns a pointer for the allocate memory for resultBuffer */
 unsigned char * gpuInit(void);
 
-/** Solve a batch of passphrases to result buffer */
-void gpuSolver(char*, unsigned char *);
+/** Solve a batch of passphrases and set result to result buffer */
+void gpuSolver(char *, unsigned char *);

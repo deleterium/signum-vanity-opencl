@@ -1,4 +1,3 @@
-
 #ifndef CONFIG_VARS
 #define CONFIG_VARS
 

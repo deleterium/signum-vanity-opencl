@@ -1,11 +1,14 @@
 # Signum vanity opencl
-Use opencl or optimized code for CPU to speed up account ID creation.
+Use GPU or CPU to find a Signum address that matches your desire.
 
 # Status
-Hashing at 1M tries per second on RX470! Cpu algorithm hashes at 15k tries per second, 36% faster than java vanity with ryzen 3 1300.
+Hashing at 2M tries per second on RX470. This is 33 times faster than using cpu, or 180x faster than usign previous java solutions (on my setup)! Optimized code in C works at 60k tries per second, 5.5 times faster than java vanity.
 
-# Compile && run
-Git clone then `gcc -o vanity main.c gpu.c ed25519-donna/ed25519.c -m64 -lcrypto -lOpenCL -lm && ./vanity`
+# Compile and run (Linux only)
+* Git clone
+* Compile `gcc -o vanity main.c cpu.c gpu.c ReedSolomon.c ed25519-donna/ed25519.c -m64 -lcrypto -lOpenCL -lm -DLINUX -O2`
+* Test it is running on cpu: `./vanity --cpu A_A`
+* Play with options to maximize speed
 
 # Help
 ```
@@ -24,6 +27,7 @@ Usage: vanity [OPTION [ARG]] ... MASK
 
 Example: vanity --gpu --gpu-threads 102400 --gpu-work-size 32 V_A_N_I
 ```
+More support on my discord channel: [SmartC Channel](https://discord.gg/pQHnBRYE5c). Drop some donation for me: S-DKVF-VE8K-KUXB-DELET.
 
 # Inspiration
 * https://github.com/PlasmaPower/nano-vanity/ Project that uses also curve25519 for cryptography. Can reach 130k tries per second (on RX470).

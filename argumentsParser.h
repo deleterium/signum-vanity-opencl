@@ -30,40 +30,38 @@ void endProgram(const char * errorString) {
 }
 
 void argumentsParser(int argc, char **argv) {
-
     //Default values:
     GlobalConfig.secretLength = 64;
     GlobalConfig.useGpu = 1;
-    GlobalConfig.gpuThreads = 128*128;
+    GlobalConfig.gpuThreads = 128 * 128;
     GlobalConfig.gpuWorkSize = 64;
     GlobalConfig.gpuPlatform = 0;
     GlobalConfig.gpuDevice = 0;
     GlobalConfig.endless = 0;
 
     if (argc == 1) {
-            endProgram("Error: MASK was not specified... Try '--help'. ");
+            endProgram("Error: MASK was not specified... Try '--help'.");
     }
-
     int i = 1;
     while (i < argc) {
-        if (strlen(argv[i]) <=2 ) {
-            if (i == argc -1) {
+        if (strlen(argv[i]) <= 2) {
+            if (i == argc - 1) {
                 // Last item is MASK
                 return;
             }
-            endProgram("Error parsing command line options. Try '--help'. ");
+            endProgram("Error parsing command line options. Try '--help'.");
         }
         if (argv[i][0] != '-' || argv[i][1] != '-') {
-            if (i == argc -1) {
+            if (i == argc - 1) {
                 // Last item is MASK
                 return;
             }
-            endProgram("Error parsing command line options. Try '--help'. ");
+            endProgram("Error parsing command line options. Try '--help'.");
         }
 
         if (strcmp(argv[i], "--pass-length") == 0) {
             i++;
-            if (i >= argc){
+            if (i >= argc) {
                 endProgram("Expecting value for pass-length.");
             }
             GlobalConfig.secretLength = (int) strtol(argv[i], NULL, 10);
@@ -78,8 +76,8 @@ void argumentsParser(int argc, char **argv) {
             if (i >= argc){
                 endProgram("Expecting value for gpu-threads.");
             }
-            GlobalConfig.gpuThreads = strtol (argv[i], NULL, 10);
-            if (GlobalConfig.gpuThreads == 0){
+            GlobalConfig.gpuThreads = strtol(argv[i], NULL, 10);
+            if (GlobalConfig.gpuThreads == 0) {
                 endProgram("Invalid value for gpu-threads.");
             }
             i++;
@@ -87,11 +85,11 @@ void argumentsParser(int argc, char **argv) {
         }
         if (strcmp(argv[i], "--gpu-work-size") == 0) {
             i++;
-            if (i >= argc){
+            if (i >= argc) {
                 endProgram("Expecting value for gpu-work-size.");
             }
-            GlobalConfig.gpuWorkSize = strtol (argv[i], NULL, 10);
-            if (GlobalConfig.gpuWorkSize == 0){
+            GlobalConfig.gpuWorkSize = strtol(argv[i], NULL, 10);
+            if (GlobalConfig.gpuWorkSize == 0) {
                 endProgram("Invalid value for gpu-work-size.");
             }
             i++;
@@ -102,8 +100,8 @@ void argumentsParser(int argc, char **argv) {
             if (i >= argc) {
                 endProgram("Expecting value for gpu-platform.");
             }
-            GlobalConfig.gpuPlatform = strtol (argv[i], NULL, 10);
-            if (GlobalConfig.gpuPlatform == 0 && argv[i][0] != '0' ){
+            GlobalConfig.gpuPlatform = strtol(argv[i], NULL, 10);
+            if (GlobalConfig.gpuPlatform == 0 && argv[i][0] != '0') {
                 endProgram("Invalid value for gpu-platform.");
             }
             i++;
@@ -114,8 +112,8 @@ void argumentsParser(int argc, char **argv) {
             if (i >= argc) {
                 endProgram("Expecting value for gpu-device.");
             }
-            GlobalConfig.gpuDevice = strtol (argv[i], NULL, 10);
-            if (GlobalConfig.gpuDevice == 0 && argv[i][0] != '0' ){
+            GlobalConfig.gpuDevice = strtol(argv[i], NULL, 10);
+            if (GlobalConfig.gpuDevice == 0 && argv[i][0] != '0') {
                 endProgram("Invalid value for gpu-device.");
             }
             i++;

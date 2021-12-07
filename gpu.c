@@ -1,4 +1,3 @@
-
 #include "globalTypes.h"
 #include "gpu.h"
 
@@ -8,18 +7,17 @@ static cl_device_id * gpuDevices = NULL;
 static cl_context context;
 static cl_int ret;
 
-static char* source_str;
+static char * source_str;
 static size_t source_size;
 
 static cl_program program;
 static cl_kernel kernel;
 static cl_command_queue command_queue;
 
+static cl_mem pinnedClMemResult, clMemResult;
+static cl_mem clMemPassphrase, clMemPassLength, clMemResultMask;
 
-static cl_mem pinnedClMemResult, clMemResult, clMemPassphrase, clMemPassLength, clMemResultMask;
 static unsigned int passLengthArr[3];
-
-static size_t string_len;
 
 void load_source();
 void createDevice();
@@ -27,48 +25,82 @@ void createkernel();
 unsigned char * create_clobj();
 void check_error(cl_int error, int position);
 
-
-// void printBuffer(char* buffer, char* description) {
-//     printf("%s\n",description);
-//     for (int i=0; i< GlobalConfig.gpuThreads; i++) {
-//         printf("%*.*s\n",GlobalConfig.secretLength, GlobalConfig.secretLength, buffer+GlobalConfig.secretLength*i);
-//     }
-//     printf("\n");
-// }
-
 unsigned char * gpuInit(void) {
+    passLengthArr[0] = GlobalConfig.secretLength;
+    passLengthArr[1] = 0;
+    passLengthArr[2] = 0;
     load_source();
     createDevice();
     createkernel();
     return create_clobj();
 }
 
-void gpuSolver(char* inputBatch, unsigned char * resultBatch) {
-    passLengthArr[0] = GlobalConfig.secretLength;
-    passLengthArr[1] = 0;
-    passLengthArr[2] = 0;
-
-    ret = clEnqueueWriteBuffer(command_queue, clMemPassLength, CL_FALSE, 0, sizeof(unsigned int) * 3, passLengthArr, 0, NULL, NULL);
+void gpuSolver(char * inputBatch, unsigned char * resultBatch) {
+    ret = clEnqueueWriteBuffer(
+        command_queue,
+        clMemPassLength,
+        CL_FALSE,
+        0,
+        sizeof(unsigned int) * 3,
+        passLengthArr,
+        0,
+        NULL,
+        NULL
+    );
     check_error(ret, 50);
-    ret = clEnqueueWriteBuffer(command_queue, clMemResultMask, CL_FALSE, 0, sizeof(unsigned char) * RS_ADDRESS_BYTE_SIZE, GlobalConfig.mask, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(
+        command_queue,
+        clMemResultMask,
+        CL_FALSE,
+        0,
+        sizeof(unsigned char) * RS_ADDRESS_BYTE_SIZE,
+        GlobalConfig.mask,
+        0,
+        NULL,
+        NULL
+    );
     check_error(ret, 51);
-    ret = clEnqueueWriteBuffer(command_queue, clMemPassphrase, CL_FALSE, 0, GlobalConfig.secretLength * GlobalConfig.gpuThreads, inputBatch, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(
+        command_queue,
+        clMemPassphrase,
+        CL_FALSE,
+        0,
+        GlobalConfig.secretLength * GlobalConfig.gpuThreads,
+        inputBatch,
+        0,
+        NULL,
+        NULL
+    );
     check_error(ret, 52);
-    ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &GlobalConfig.gpuThreads, &GlobalConfig.gpuWorkSize, 0, NULL, NULL);
+    ret = clEnqueueNDRangeKernel(
+        command_queue,
+        kernel,
+        1,
+        NULL,
+        &GlobalConfig.gpuThreads,
+        &GlobalConfig.gpuWorkSize,
+        0,
+        NULL,
+        NULL
+    );
     check_error(ret, 53);
-
     // read hashes
-    ret = clEnqueueReadBuffer(command_queue, clMemResult, CL_TRUE, 0, sizeof(cl_uchar) * GlobalConfig.gpuThreads, resultBatch, 0, NULL, NULL);
+    ret = clEnqueueReadBuffer(
+        command_queue,
+        clMemResult,
+        CL_TRUE,
+        0,
+        sizeof(cl_uchar) * GlobalConfig.gpuThreads,
+        resultBatch,
+        0,
+        NULL,
+        NULL
+    );
     check_error(ret, 54);
-
-    // for(int i=0; i<GlobalConfig.gpuThreads; i++) {
-    //     // printf("%d:: %cx\n",i, calculatedResult[i]);
-    //     resultBatch[i] = calculatedResult[i];
-    // }
 }
 
 void load_source() {
-    FILE *fp;
+    FILE * fp;
     fp = fopen("passphraseToId.cl", "r");
     if (!fp) {
         fprintf(stderr, "Failed to load kernel file.\n");
@@ -80,43 +112,79 @@ void load_source() {
 }
 
 unsigned char * create_clobj(void) {
-    cl_int errorCode;
     unsigned char * resultBuf;
 
-    pinnedClMemResult = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, sizeof(cl_uchar) * GlobalConfig.gpuThreads, NULL, &ret);
-    check_error(ret,107);
-    resultBuf = (cl_uchar *) clEnqueueMapBuffer(command_queue, pinnedClMemResult, CL_TRUE, CL_MAP_READ, 0, sizeof(cl_uchar) * GlobalConfig.gpuThreads, 0, NULL, NULL, &ret);
-    check_error(ret,108);
+    pinnedClMemResult = clCreateBuffer(
+        context,
+        CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR,
+        sizeof(cl_uchar) * GlobalConfig.gpuThreads,
+        NULL,
+        &ret
+    );
+    check_error(ret, 107);
+    resultBuf = (cl_uchar *) clEnqueueMapBuffer(
+        command_queue,
+        pinnedClMemResult,
+        CL_TRUE,
+        CL_MAP_READ,
+        0,
+        sizeof(cl_uchar) * GlobalConfig.gpuThreads,
+        0,
+        NULL,
+        NULL,
+        &ret
+    );
+    check_error(ret, 108);
 
-    clMemPassLength = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(unsigned int) * 3, NULL, &errorCode);
-    check_error(errorCode,109);
-    clMemPassphrase = clCreateBuffer(context, CL_MEM_READ_ONLY, GlobalConfig.secretLength * GlobalConfig.gpuThreads, NULL, &errorCode);
-    check_error(errorCode,107);
-    clMemResult = clCreateBuffer(context, CL_MEM_WRITE_ONLY , sizeof(cl_uchar) * GlobalConfig.gpuThreads, NULL, &errorCode);
-    check_error(errorCode,108);
-    clMemResultMask = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(cl_uchar) * RS_ADDRESS_BYTE_SIZE, NULL, &errorCode);
-    check_error(errorCode,109);
+    clMemPassLength = clCreateBuffer(
+        context,
+        CL_MEM_READ_ONLY,
+        sizeof(unsigned int) * 3,
+        NULL,
+        &ret
+    );
+    check_error(ret, 109);
+    clMemPassphrase = clCreateBuffer(
+        context,
+        CL_MEM_READ_ONLY,
+        GlobalConfig.secretLength * GlobalConfig.gpuThreads,
+        NULL,
+        &ret
+    );
+    check_error(ret, 107);
+    clMemResult = clCreateBuffer(
+        context,
+        CL_MEM_WRITE_ONLY,
+        sizeof(cl_uchar) * GlobalConfig.gpuThreads,
+        NULL,
+        &ret
+    );
+    check_error(ret, 108);
+    clMemResultMask = clCreateBuffer(
+        context,
+        CL_MEM_READ_ONLY,
+        sizeof(cl_uchar) * RS_ADDRESS_BYTE_SIZE,
+        NULL,
+        &ret
+    );
+    check_error(ret, 109);
 
-    errorCode=clSetKernelArg(kernel, 0, sizeof(clMemPassLength), (void *) &clMemPassLength);
-    check_error(errorCode,110);
-    errorCode=clSetKernelArg(kernel, 1, sizeof(clMemPassphrase), (void *) &clMemPassphrase);
-    check_error(errorCode,120);
-    errorCode=clSetKernelArg(kernel, 2, sizeof(clMemResult), (void *) &clMemResult);
-    check_error(errorCode,130);
-    errorCode=clSetKernelArg(kernel, 3, sizeof(clMemResultMask), (void *) &clMemResultMask);
-    check_error(errorCode,130);
+    ret = clSetKernelArg(kernel, 0, sizeof(clMemPassLength), (void *) &clMemPassLength);
+    check_error(ret, 110);
+    ret = clSetKernelArg(kernel, 1, sizeof(clMemPassphrase), (void *) &clMemPassphrase);
+    check_error(ret, 120);
+    ret = clSetKernelArg(kernel, 2, sizeof(clMemResult), (void *) &clMemResult);
+    check_error(ret, 130);
+    ret = clSetKernelArg(kernel, 3, sizeof(clMemResultMask), (void *) &clMemResultMask);
+    check_error(ret, 130);
     return resultBuf;
 }
 
 void createDevice() {
-
-    /* OpenCL 1.2 data structures */
     cl_platform_id* platforms;
-    /* OpenCL 1.1 scalar data types */
     cl_uint platformCount, numOfDevices;
     cl_uint deviceCount;
     cl_uint maxComputeUnits;
-
     char* info;
     size_t infoSize;
 
@@ -188,19 +256,36 @@ void createDevice() {
 }
 
 void createkernel() {
-
-    program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
+    program = clCreateProgramWithSource(
+        context,
+        1,
+        (const char **) &source_str,
+        (const size_t *) &source_size,
+        &ret
+    );
     check_error(ret, 200);
     printf("Compiling OpenCL kernel: ");
     fflush(stdout);
-    ret = clBuildProgram(program, 1, &gpuDevices[GlobalConfig.gpuDevice], NULL, NULL, NULL);
+    ret = clBuildProgram(
+        program,
+        1,
+        &gpuDevices[GlobalConfig.gpuDevice],
+        NULL,
+        NULL,
+        NULL
+    );
     check_error(ret, 210);
     printf("Done!\n");
     fflush(stdout);
     kernel = clCreateKernel(program, "process", &ret);
     check_error(ret, 220);
     fflush(stdout);
-    command_queue = clCreateCommandQueue(context, gpuDevices[GlobalConfig.gpuDevice], 0, &ret);
+    command_queue = clCreateCommandQueue(
+        context,
+        gpuDevices[GlobalConfig.gpuDevice],
+        0,
+        &ret
+    );
     check_error(ret, 230);
 }
 

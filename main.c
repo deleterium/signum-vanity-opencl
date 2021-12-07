@@ -23,7 +23,7 @@ struct CONFIG GlobalConfig;
 void randstring(char * buffer, size_t length) {
     if (length) {
         int n;
-        for (n = 0;n < length;n++) {
+        for (n = 0; n < length; n++) {
             char key = rand() % 89;
             buffer[n] = '!' + key;
         }
@@ -43,54 +43,50 @@ void incSecret(char * secret, size_t position) {
 
 float estimateTries(BYTE * byteMask) {
     float ret = 1.0;
-    for (size_t i = 0; i< RS_ADDRESS_BYTE_SIZE; i++) {
+    for (size_t i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
         if (byteMask[i] != 32) ret *= 32;
     }
     return (-1.0 / log10((1.0 - (1.0/ret))));
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char ** argv) {
     unsigned char * ID;
     char * secret;
     struct timeval tstart, tend;
     long seconds, micros;
+    float halfLife;
     double timeInterval;
     unsigned long roundsToPrint = 1;
-
-    srand(time(NULL) * 80 + 34634);
     unsigned long end = 0;
+    unsigned long rounds = 0;
+    unsigned long previousRounds = 0;
+
     int i;
 
+    srand(time(NULL) * 80 + 34634);
     argumentsParser(argc, argv);
-
     maskToByteMask(argv[argc - 1], GlobalConfig.mask);
-
     secret = (char *) malloc(GlobalConfig.secretLength * GlobalConfig.gpuThreads);
     if (secret == NULL) {
         printf("Cannot allocate memory for passphrases buffer\n");
         exit(1);
     }
-
     for (i = 0; i < GlobalConfig.gpuThreads; i++) {
-        randstring(&secret[GlobalConfig.secretLength*i], GlobalConfig.secretLength);
+        randstring(&secret[GlobalConfig.secretLength * i], GlobalConfig.secretLength);
     }
-
     if (GlobalConfig.useGpu) {
         ID = gpuInit();
     } else {
         ID = cpuInit();
     }
-
-    float halfLife = estimateTries(GlobalConfig.mask);
+    halfLife = estimateTries(GlobalConfig.mask);
     printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", halfLife);
 
-    unsigned long rounds = 0;
-    unsigned long previousRounds = 0;
     gettimeofday(&tstart, NULL);
 #if MDEBUG == 0
     do {
-        for (i=0; i < GlobalConfig.gpuThreads; i++) {
-            incSecret(secret+GlobalConfig.secretLength*i, 0);
+        for (i = 0; i < GlobalConfig.gpuThreads; i++) {
+            incSecret(secret + GlobalConfig.secretLength * i, 0);
         }
 #endif
         if (GlobalConfig.useGpu) {
@@ -99,18 +95,18 @@ int main(int argc, char **argv) {
             cpuSolver(secret, ID);
         }
         ++rounds;
-        if ( (rounds % roundsToPrint) == 0L) {
+        if ((rounds % roundsToPrint) == 0L) {
             gettimeofday(&tend, NULL);
             seconds = (tend.tv_sec - tstart.tv_sec);
-            micros = ((seconds * 1000000) + tend.tv_usec) - (tstart.tv_usec);
-            timeInterval = (double)micros/1000000;
-            unsigned long currentTries = rounds*GlobalConfig.gpuThreads;
+            micros = ((seconds * 1000000) + tend.tv_usec) - tstart.tv_usec;
+            timeInterval = (double) micros / 1000000;
+            unsigned long currentTries = rounds * GlobalConfig.gpuThreads;
             if (GlobalConfig.endless == 0) {
                 printf(
                     "\r %lu tries - %.1f%% - %.0f tries/second...",
                     currentTries,
                     100.0 * currentTries / halfLife,
-                    (float)((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval
+                    (float) ((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval
                 );
                 fflush(stdout);
             }
@@ -125,15 +121,15 @@ int main(int argc, char **argv) {
             }
             previousRounds = rounds;
         }
-        for (i=0; i< GlobalConfig.gpuThreads; i++) {
+        for (i = 0; i < GlobalConfig.gpuThreads; i++) {
             if (ID[i] == 1) {
                 char rsAddress[RS_ADDRESS_STRING_SIZE];
-                unsigned long newId = solveOnlyOne(secret + i*GlobalConfig.secretLength, rsAddress);
+                unsigned long newId = solveOnlyOne(secret + i * GlobalConfig.secretLength, rsAddress);
                 printf(
                     "\nPassphrase: '%*.*s' id: %20lu RS: %s",
                     GlobalConfig.secretLength,
                     GlobalConfig.secretLength,
-                    secret + i*GlobalConfig.secretLength,
+                    secret + i * GlobalConfig.secretLength,
                     newId,
                     rsAddress
                 );
@@ -148,8 +144,14 @@ int main(int argc, char **argv) {
 #if MDEBUG == 0
     } while (end == 0);
 #else
-    for (i=0; i< GlobalConfig.gpuThreads; i++) {
-        printf("'%*.*s': %x\n", GlobalConfig.secretLength, GlobalConfig.secretLength, secret + i*GlobalConfig.secretLength, ID[i]);
+    for (i = 0; i < GlobalConfig.gpuThreads; i++) {
+        printf(
+            "'%*.*s': %x\n",
+            GlobalConfig.secretLength,
+            GlobalConfig.secretLength,
+            secret + i * GlobalConfig.secretLength,
+            ID[i]
+        );
     }
 #endif
 }
