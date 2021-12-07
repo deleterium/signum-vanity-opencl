@@ -1,6 +1,5 @@
 
 #include "globalTypes.h"
-#include "programConstants.h"
 #include "gpu.h"
 
 extern struct CONFIG GlobalConfig;

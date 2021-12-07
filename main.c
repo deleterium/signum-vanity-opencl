@@ -11,10 +11,9 @@
 
 #include "globalTypes.h"
 #include "argumentsParser.h"
-#include "programConstants.h"
 #include "gpu.h"
 #include "ed25519-donna/ed25519.h"
-#include "ReedSalomon.h"
+#include "ReedSolomon.h"
 
 struct CONFIG GlobalConfig;
 

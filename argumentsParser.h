@@ -24,7 +24,7 @@ Usage: vanity [OPTION [ARG]] ... MASK\n\
 \n\
 Example: vanity --gpu --gpu-threads 102400 --gpu-work-size 32 V_A_N_I\n";
 
-void endProgram(char * errorString) {
+void endProgram(const char * errorString) {
     printf("%s\n", errorString);
     exit(1);
 }
