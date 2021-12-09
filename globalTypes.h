@@ -14,6 +14,7 @@ struct CONFIG {
         suffix,
         endless;
     BYTE mask[RS_ADDRESS_BYTE_SIZE];
+    char charset[120];
 };
 
 #endif

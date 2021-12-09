@@ -21,11 +21,16 @@ struct CONFIG GlobalConfig;
  * string will contain ASCII characters from '!' to 'z'. Mininium 40 chars
  * to have 256-bit output. */
 void randstring(char * buffer, size_t length) {
-    if (length) {
-        int n;
-        for (n = 0; n < length; n++) {
+    if (GlobalConfig.charset[0] == 0) {
+        for (int n = 0; n < length; n++) {
             char key = rand() % 89;
             buffer[n] = '!' + key;
+        }
+    } else {
+        int charsetLength = strlen(GlobalConfig.charset);
+        for (int n = 0; n < length; n++) {
+            int key = rand() % charsetLength;
+            buffer[n] = GlobalConfig.charset[key];
         }
     }
 }
@@ -33,12 +38,50 @@ void randstring(char * buffer, size_t length) {
 /**
  * Increments one char at secret buffer. No buffer overflow is checked. */
 void incSecret(char * secret, size_t position) {
-    if (secret[position] >= 'z') {
-        secret[position] = '!';
-        incSecret(secret, position + 1);
-        return;
+    if (GlobalConfig.charset[0] == 0) {
+        if (secret[position] >= 'z') {
+            secret[position] = '!';
+            incSecret(secret, position + 1);
+            return;
+        }
+        secret[position] += 1;
+    } else {
+        char * currCharHeight = strchr(GlobalConfig.charset, (int)secret[position]);
+        if (currCharHeight == NULL) {
+            printf("Internal error\n");
+            exit(2);
+        }
+        int height = (int)(currCharHeight - GlobalConfig.charset);
+        if (height == strlen(GlobalConfig.charset) - 1) {
+            secret[position] = GlobalConfig.charset[0];
+            incSecret(secret, position + 1);
+            return;
+        }
+        secret[position] = GlobalConfig.charset[height + 1];
     }
-    secret[position] += 1;
+}
+
+float getPassphraseStrength(void) {
+    int i;
+    char * foundChar;
+    float passStrength;
+    if (GlobalConfig.charset[0] == 0) {
+        passStrength = log2(pow(89.0, (float)GlobalConfig.secretLength));
+    } else {
+        for (i=0; i< strlen(GlobalConfig.charset) - 1; i++) {
+            foundChar = strchr(GlobalConfig.charset+i+1, (int)GlobalConfig.charset[i]);
+            if (foundChar != NULL) {
+                printf("Wrong charset. Found a repeated char.\n");
+                exit(1);
+            }
+        }
+        passStrength = log2(pow((float)strlen(GlobalConfig.charset), (float)GlobalConfig.secretLength));
+    }
+    if (passStrength < 256.0) {
+        printf("Weak passphrase detected. It is %.f bits strong. It must be greater than 256 bits. Increase pass-length or increase charset length.\n", passStrength);
+        exit(1);
+    }
+    return passStrength;
 }
 
 float estimate90percent(float findingChance) {
@@ -88,6 +131,8 @@ int main(int argc, char ** argv) {
     } else {
         ID = cpuInit();
     }
+
+    printf("Your passphrase will be %.f bits strong!\n", getPassphraseStrength());
     eventChance = findingChance(GlobalConfig.mask);
     printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", estimate90percent(eventChance));
 

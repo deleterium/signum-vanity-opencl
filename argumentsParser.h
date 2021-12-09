@@ -20,6 +20,7 @@ Usage: vanity [OPTION [ARG]] ... MASK\n\
   --gpu-threads N    Send a batch of N threads\n\
   --gpu-work-size N  Select N concurrent works\n\
   --endless          Never stop finding passphrases\n\
+  --use-charset ABC  Generate passwords only containing the ABC chars\n\
 \n\
   MASK   Desired address. Use '_' for any char at that location. Must be at least one char and maximum 17 chars. No 0, O, I or 1 allowed.\n\
 \n\
@@ -41,6 +42,7 @@ int argumentsParser(int argc, char **argv) {
     GlobalConfig.gpuDevice = 0;
     GlobalConfig.endless = 0;
     GlobalConfig.suffix = 0;
+    GlobalConfig.charset[0] = 0;
 
     if (argc == 1) {
             endProgram("Usage: vanity [OPTION [ARG]] ... MASK\nTry '--help'.");
@@ -118,6 +120,17 @@ int argumentsParser(int argc, char **argv) {
             if (GlobalConfig.gpuDevice == 0 && argv[i][0] != '0') {
                 endProgram("Invalid value for gpu-device.");
             }
+            continue;
+        }
+        if (strcmp(argv[i], "--use-charset") == 0) {
+            i++;
+            if (i >= argc) {
+                endProgram("Expecting value for use-charset.");
+            }
+            if (strlen(argv[i]) > 119) {
+                endProgram("Charset values must be max 119 chars long.");
+            }
+            strcpy(GlobalConfig.charset, argv[i]);
             continue;
         }
         if (strcmp(argv[i], "--help") == 0) {
