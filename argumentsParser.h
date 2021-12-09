@@ -29,7 +29,8 @@ void endProgram(const char * errorString) {
     exit(1);
 }
 
-void argumentsParser(int argc, char **argv) {
+int argumentsParser(int argc, char **argv) {
+    int maskIndex = -1;
     //Default values:
     GlobalConfig.secretLength = 64;
     GlobalConfig.useGpu = 1;
@@ -40,23 +41,26 @@ void argumentsParser(int argc, char **argv) {
     GlobalConfig.endless = 0;
 
     if (argc == 1) {
-            endProgram("Error: MASK was not specified... Try '--help'.");
+            endProgram("Usage: vanity [OPTION [ARG]] ... MASK\nTry '--help'.");
     }
-    int i = 1;
-    while (i < argc) {
+    int i = 0;
+    while (i < argc - 1) {
+        i++;
         if (strlen(argv[i]) <= 2) {
-            if (i == argc - 1) {
-                // Last item is MASK
-                return;
+            if (maskIndex == -1) {
+                maskIndex = i;
+                continue;
+            } else {
+                endProgram("Usage: vanity [OPTION [ARG]] ... MASK\nTry '--help'.");
             }
-            endProgram("Error parsing command line options. Try '--help'.");
         }
         if (argv[i][0] != '-' || argv[i][1] != '-') {
-            if (i == argc - 1) {
-                // Last item is MASK
-                return;
+            if (maskIndex == -1) {
+                maskIndex = i;
+                continue;
+            } else {
+                endProgram("Usage: vanity [OPTION [ARG]] ... MASK\nTry '--help'.");
             }
-            endProgram("Error parsing command line options. Try '--help'.");
         }
 
         if (strcmp(argv[i], "--pass-length") == 0) {
@@ -68,7 +72,6 @@ void argumentsParser(int argc, char **argv) {
             if (GlobalConfig.secretLength < 40 || GlobalConfig.secretLength > 120){
                 endProgram("Invalid value for pass-length.");
             }
-            i++;
             continue;
         }
         if (strcmp(argv[i], "--gpu-threads") == 0) {
@@ -80,7 +83,6 @@ void argumentsParser(int argc, char **argv) {
             if (GlobalConfig.gpuThreads == 0) {
                 endProgram("Invalid value for gpu-threads.");
             }
-            i++;
             continue;
         }
         if (strcmp(argv[i], "--gpu-work-size") == 0) {
@@ -92,7 +94,6 @@ void argumentsParser(int argc, char **argv) {
             if (GlobalConfig.gpuWorkSize == 0) {
                 endProgram("Invalid value for gpu-work-size.");
             }
-            i++;
             continue;
         }
         if (strcmp(argv[i], "--gpu-platform") == 0) {
@@ -104,7 +105,6 @@ void argumentsParser(int argc, char **argv) {
             if (GlobalConfig.gpuPlatform == 0 && argv[i][0] != '0') {
                 endProgram("Invalid value for gpu-platform.");
             }
-            i++;
             continue;
         }
         if (strcmp(argv[i], "--gpu-device") == 0) {
@@ -116,7 +116,6 @@ void argumentsParser(int argc, char **argv) {
             if (GlobalConfig.gpuDevice == 0 && argv[i][0] != '0') {
                 endProgram("Invalid value for gpu-device.");
             }
-            i++;
             continue;
         }
         if (strcmp(argv[i], "--help") == 0) {
@@ -125,23 +124,23 @@ void argumentsParser(int argc, char **argv) {
         }
         if (strcmp(argv[i], "--gpu") == 0) {
             GlobalConfig.useGpu = 1;
-            i++;
             continue;
         }
         if (strcmp(argv[i], "--cpu") == 0) {
             GlobalConfig.useGpu = 0;
             GlobalConfig.gpuThreads = 256;
-            i++;
             continue;
         }
         if (strcmp(argv[i], "--endless") == 0) {
             GlobalConfig.endless = 1;
-            i++;
             continue;
         }
 
         printf("Unknow command line option: %s\nTry '--help'.\n", argv[i]);
         exit(1);
     }
-    endProgram("Error: MASK was not specified... Try '--help'.");
+    if (maskIndex == -1) {
+        endProgram("Error: MASK was not specified... Try '--help'.");
+    }
+    return maskIndex;
 }

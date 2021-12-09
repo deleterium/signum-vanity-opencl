@@ -68,12 +68,13 @@ int main(int argc, char ** argv) {
     unsigned long end = 0;
     unsigned long rounds = 0;
     unsigned long previousRounds = 0;
+    int maskIndex;
 
     int i;
 
     srand(time(NULL) * 80 + 34634);
-    argumentsParser(argc, argv);
-    maskToByteMask(argv[argc - 1], GlobalConfig.mask);
+    maskIndex = argumentsParser(argc, argv);
+    maskToByteMask(argv[maskIndex], GlobalConfig.mask);
     secret = (char *) malloc(GlobalConfig.secretLength * GlobalConfig.gpuThreads);
     if (secret == NULL) {
         printf("Cannot allocate memory for passphrases buffer\n");
