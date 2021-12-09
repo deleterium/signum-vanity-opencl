@@ -61,6 +61,32 @@ void incSecret(char * secret, size_t position) {
     }
 }
 
+void initRand(void) {
+    unsigned int randomData;
+#ifdef LINUX
+    FILE *random = fopen("/dev/random", "rb");
+    if (random != NULL) {
+        if (fread (&randomData,sizeof(randomData), 1, random) == 1) {
+            srand(randomData);
+            printf("Got random seed from /dev/random!\n");
+            fclose(random);
+            return;
+
+        }
+        fclose(random);
+    }
+#endif
+    struct timespec now;
+    if (clock_gettime(CLOCK_REALTIME, &now) == 0) {
+        randomData = (unsigned int)(now.tv_sec ^ now.tv_nsec);
+        srand(randomData);
+        printf("Got random seed from current microseconds.\n");
+        return;
+    }
+    srand(time(NULL) * 80 + 34634);
+    printf("Not good.. Got random seed from current second...\n");
+}
+
 float getPassphraseStrength(void) {
     int i;
     char * foundChar;
@@ -115,7 +141,7 @@ int main(int argc, char ** argv) {
 
     int i;
 
-    srand(time(NULL) * 80 + 34634);
+    initRand();
     maskIndex = argumentsParser(argc, argv);
     maskToByteMask(argv[maskIndex], GlobalConfig.mask, GlobalConfig.suffix);
     secret = (char *) malloc(GlobalConfig.secretLength * GlobalConfig.gpuThreads);
