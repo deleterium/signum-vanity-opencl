@@ -41,12 +41,20 @@ void incSecret(char * secret, size_t position) {
     secret[position] += 1;
 }
 
-float estimateTries(BYTE * byteMask) {
-    float ret = 1.0;
+float estimate90percent(float findingChance) {
+    return (-1.0 / log10((1.0 - findingChance)));
+}
+
+float findingChance(BYTE * byteMask) {
+    float events = 1.0;
     for (size_t i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
-        if (byteMask[i] != 32) ret *= 32;
+        if (byteMask[i] != 32) events *= 32;
     }
-    return (-1.0 / log10((1.0 - (1.0/ret))));
+    return (1.0/events);
+}
+
+float luckyChance(float numberOfEvents, float findingChance) {
+    return (1.0 - pow(1.0 - findingChance,numberOfEvents)) * 100.0;
 }
 
 int main(int argc, char ** argv) {
@@ -54,7 +62,7 @@ int main(int argc, char ** argv) {
     char * secret;
     struct timeval tstart, tend;
     long seconds, micros;
-    float halfLife;
+    float eventChance;
     double timeInterval;
     unsigned long roundsToPrint = 1;
     unsigned long end = 0;
@@ -79,8 +87,8 @@ int main(int argc, char ** argv) {
     } else {
         ID = cpuInit();
     }
-    halfLife = estimateTries(GlobalConfig.mask);
-    printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", halfLife);
+    eventChance = findingChance(GlobalConfig.mask);
+    printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", estimate90percent(eventChance));
 
     gettimeofday(&tstart, NULL);
 #if MDEBUG == 0
@@ -103,9 +111,9 @@ int main(int argc, char ** argv) {
             unsigned long currentTries = rounds * GlobalConfig.gpuThreads;
             if (GlobalConfig.endless == 0) {
                 printf(
-                    "\r %lu tries - %.1f%% - %.0f tries/second...",
+                    "\r %lu tries - Lucky chance: %.1f%% - %.0f tries/second...",
                     currentTries,
-                    100.0 * currentTries / halfLife,
+                    luckyChance((float)currentTries, eventChance),
                     (float) ((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval
                 );
                 fflush(stdout);
