@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <sys/time.h>
 #include <math.h>
 
 #include "globalTypes.h"
@@ -129,10 +128,10 @@ float luckyChance(float numberOfEvents, float findingChance) {
 int main(int argc, char ** argv) {
     unsigned char * ID;
     char * secret;
-    struct timeval tstart, tend;
-    long seconds, micros;
+    struct timespec tstart, tend;
+    long seconds, nanos;
     float eventChance;
-    double timeInterval;
+    float timeInterval;
     unsigned long roundsToPrint = 1;
     unsigned long end = 0;
     unsigned long rounds = 0;
@@ -162,7 +161,7 @@ int main(int argc, char ** argv) {
     eventChance = findingChance(GlobalConfig.mask);
     printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", estimate90percent(eventChance));
 
-    gettimeofday(&tstart, NULL);
+    clock_gettime(CLOCK_REALTIME, &tstart);
 #if MDEBUG == 0
     do {
         for (i = 0; i < GlobalConfig.gpuThreads; i++) {
@@ -176,10 +175,10 @@ int main(int argc, char ** argv) {
         }
         ++rounds;
         if ((rounds % roundsToPrint) == 0L) {
-            gettimeofday(&tend, NULL);
+            clock_gettime(CLOCK_REALTIME, &tend);
             seconds = (tend.tv_sec - tstart.tv_sec);
-            micros = ((seconds * 1000000) + tend.tv_usec) - tstart.tv_usec;
-            timeInterval = (double) micros / 1000000;
+            nanos = ((seconds * 1000000000) + tend.tv_nsec) - tstart.tv_nsec;
+            timeInterval = (float) nanos / 1000000000.0;
             unsigned long currentTries = rounds * GlobalConfig.gpuThreads;
             if (GlobalConfig.endless == 0) {
                 printf(
@@ -190,7 +189,7 @@ int main(int argc, char ** argv) {
                 );
                 fflush(stdout);
             }
-            gettimeofday(&tstart, NULL);
+            clock_gettime(CLOCK_REALTIME, &tstart);
             // adjust rounds To print
             if (timeInterval < 0.3) {
                 roundsToPrint *= 2;
