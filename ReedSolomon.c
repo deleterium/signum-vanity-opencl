@@ -98,7 +98,9 @@ BYTE rscharToIndex(char in) {
     }
 }
 
-void maskToByteMask(const char * charMask, BYTE * byteMask) {
+void maskToByteMask(const char * charMask, BYTE * byteMask, int isSuffix) {
+    char processedMask[18];
+
     if (strlen(charMask) == 0) {
         printf("Error parsing mask. Mask is empty.\n");
         exit(1);
@@ -107,11 +109,17 @@ void maskToByteMask(const char * charMask, BYTE * byteMask) {
         printf("Error parsing mask. Mask is too big.\n");
         exit(1);
     }
+    if (isSuffix == 1) {
+        strcpy(processedMask, "_________________");
+        strcpy(processedMask+17-strlen(charMask), charMask);
+    } else {
+        strcpy(processedMask, charMask);
+    }
     for (size_t i = 0; i < 17; i++) {
         byteMask[i] = 32;
     }
-    for (size_t i = 0; i < strlen(charMask); i++) {
-        byteMask[i] = rscharToIndex(charMask[i]);
+    for (size_t i = 0; i < strlen(processedMask); i++) {
+        byteMask[i] = rscharToIndex(processedMask[i]);
     }
     if (byteMask[12] > 15 && byteMask[12] != 32) {
         printf("Error parsing mask. Char '%c' is not allowed on position 13.\n", byteMask[12]);

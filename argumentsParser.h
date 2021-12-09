@@ -10,7 +10,8 @@ char helpString[] = "\
 Password generator for vanity addresses on signum cryptocurrency.\n\
 \n\
 Usage: vanity [OPTION [ARG]] ... MASK\n\
-  --help             show this help statement\n\
+  --help             Show this help statement\n\
+  --suffix           Match given mask at the end of address\n\
   --pass-length N    Passphrase length. 40 to 120 chars. Default: 64\n\
   --cpu              Set to use CPU. Using it disables using GPU.\n\
   --gpu              Set to use GPU. Default is to use.\n\
@@ -39,6 +40,7 @@ int argumentsParser(int argc, char **argv) {
     GlobalConfig.gpuPlatform = 0;
     GlobalConfig.gpuDevice = 0;
     GlobalConfig.endless = 0;
+    GlobalConfig.suffix = 0;
 
     if (argc == 1) {
             endProgram("Usage: vanity [OPTION [ARG]] ... MASK\nTry '--help'.");
@@ -133,6 +135,10 @@ int argumentsParser(int argc, char **argv) {
         }
         if (strcmp(argv[i], "--endless") == 0) {
             GlobalConfig.endless = 1;
+            continue;
+        }
+        if (strcmp(argv[i], "--suffix") == 0) {
+            GlobalConfig.suffix = 1;
             continue;
         }
 

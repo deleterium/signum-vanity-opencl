@@ -12,7 +12,7 @@ void idTOAccount(unsigned long accountId, char * out);
 
 /** Parse a string with a suposed mask and leave the result
  * inside byte mask */
-void maskToByteMask(const char * charMask, BYTE * byteMask);
+void maskToByteMask(const char * charMask, BYTE * byteMask, int isSuffix);
 
 /** Compares a byte mask with a byte account.
  * Return 1 if it matches, otherwise returns 0 */

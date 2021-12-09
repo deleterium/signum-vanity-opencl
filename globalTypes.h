@@ -11,6 +11,7 @@ struct CONFIG {
         gpuPlatform,
         gpuDevice;
     int secretLength,
+        suffix,
         endless;
     BYTE mask[RS_ADDRESS_BYTE_SIZE];
 };
