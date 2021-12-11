@@ -14,6 +14,7 @@ const uint8_t glog[] = {
     4, 10, 30, 17, 7, 22, 28, 26, 21, 25, 9, 16, 13, 14, 24, 15
 };
 const uint8_t cwmap[] = {3, 2, 1, 0, 7, 6, 5, 4, 13, 14, 15, 16, 12, 8, 9, 10, 11};
+const char rsAlphabet[] = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 
 uint8_t gmult(uint8_t a, uint8_t b) {
     if (a == 0 || b == 0) {
@@ -49,10 +50,9 @@ void idToByteAccount(uint64_t accountId, uint8_t * out) {
 
 void idToAccount(uint64_t accountId, char * out) {
     uint8_t byteOut[RS_ADDRESS_BYTE_SIZE];
-    const char alphabet[] = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
     idToByteAccount(accountId, byteOut);
     for (size_t i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
-        out[i] = alphabet[byteOut[i]];
+        out[i] = rsAlphabet[byteOut[i]];
     }
     out[RS_ADDRESS_BYTE_SIZE] = '\0';
 }
@@ -122,7 +122,7 @@ void maskToByteMask(const char * charMask, uint8_t * byteMask, int32_t isSuffix)
         byteMask[i] = rscharToIndex(processedMask[i]);
     }
     if (byteMask[12] > 15 && byteMask[12] != 32) {
-        printf("Error parsing mask. Char '%c' is not allowed on position 13. Use only [23456789ABCDEFGH].\n", byteMask[12]);
+        printf("Error parsing mask. Char '%c' is not allowed on position 13. Use only [23456789ABCDEFGH].\n", rsAlphabet[byteMask[12]]);
         exit(1);
     }
 }
