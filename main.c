@@ -107,10 +107,17 @@ double getPassphraseStrength(void) {
     if (GlobalConfig.charset[0] == 0) {
         passStrength = log2(pow(89.0, (double)GlobalConfig.secretLength));
     } else {
-        for (i=0; i< strlen(GlobalConfig.charset) - 1; i++) {
-            foundChar = strchr(GlobalConfig.charset+i+1, (int)GlobalConfig.charset[i]);
-            if (foundChar != NULL) {
-                printf("Wrong charset. Found a repeated char.\n");
+        size_t charsetLength = strlen(GlobalConfig.charset);
+        for (i=0; i< charsetLength; i++) {
+            if (i < charsetLength - 1) {
+                foundChar = strchr(GlobalConfig.charset+i+1, (int)GlobalConfig.charset[i]);
+                if (foundChar != NULL) {
+                    printf("Wrong charset. Found a repeated char.\n");
+                    exit(1);
+                }
+            }
+            if (GlobalConfig.charset[i] < 32 || GlobalConfig.charset[i] > 126) {
+                printf("No special (unicode) chars are allowed in charset.\n");
                 exit(1);
             }
         }
