@@ -16,6 +16,9 @@
 
 #include "ed25519-donna.h"
 #include "ed25519.h"
+
+#ifdef ED25519_ENABLE_SIGNING
+
 #include "ed25519-randombytes.h"
 #include "ed25519-hash.h"
 
@@ -116,6 +119,8 @@ ED25519_FN(ed25519_sign_open) (const unsigned char *m, size_t mlen, const ed2551
 }
 
 #include "ed25519-donna-batchverify.h"
+
+#endif
 
 /*
 	Fast Curve25519 basepoint scalar multiplication

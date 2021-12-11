@@ -5,34 +5,34 @@
 
 #define ginv(a) (gexp[31 - glog[a]])
 
-const BYTE gexp[] = {
+const uint8_t gexp[] = {
     1, 2, 4, 8, 16, 5, 10, 20, 13, 26, 17, 7, 14, 28, 29, 31,
     27, 19, 3, 6, 12, 24, 21, 15, 30, 25, 23, 11, 22, 9, 18, 1
 };
-const BYTE glog[] = {
+const uint8_t glog[] = {
     0, 0, 1, 18, 2, 5, 19, 11, 3, 29, 6, 27, 20, 8, 12, 23,
     4, 10, 30, 17, 7, 22, 28, 26, 21, 25, 9, 16, 13, 14, 24, 15
 };
-const BYTE cwmap[] = {3, 2, 1, 0, 7, 6, 5, 4, 13, 14, 15, 16, 12, 8, 9, 10, 11};
+const uint8_t cwmap[] = {3, 2, 1, 0, 7, 6, 5, 4, 13, 14, 15, 16, 12, 8, 9, 10, 11};
 
-BYTE gmult(BYTE a, BYTE b) {
+uint8_t gmult(uint8_t a, uint8_t b) {
     if (a == 0 || b == 0) {
         return 0;
     }
     return gexp[(glog[a] + glog[b]) % 31];
 }
 
-void idTOByteAccount(unsigned long accountId, BYTE * out) {
-    BYTE codeword[RS_ADDRESS_BYTE_SIZE];
-    const BYTE base32Length = 13;
-    BYTE p[] = {0, 0, 0, 0};
+void idToByteAccount(uint64_t accountId, uint8_t * out) {
+    uint8_t codeword[RS_ADDRESS_BYTE_SIZE];
+    const size_t base32Length = 13;
+    uint8_t p[] = {0, 0, 0, 0};
     size_t i;
     for (i = 0; i < base32Length; i++){
         codeword[i] = accountId % 32;
         accountId >>= 5;
     }
     for (i = base32Length - 1; i < base32Length; i--) {
-        BYTE fb = codeword[i] ^ p[3];
+        uint8_t fb = codeword[i] ^ p[3];
         p[3] = p[2] ^ gmult(30, fb);
         p[2] = p[1] ^ gmult(6, fb);
         p[1] = p[0] ^ gmult(9, fb);
@@ -47,17 +47,17 @@ void idTOByteAccount(unsigned long accountId, BYTE * out) {
     }
 }
 
-void idTOAccount(unsigned long accountId, char * out) {
-    BYTE byteOut[RS_ADDRESS_BYTE_SIZE];
+void idToAccount(uint64_t accountId, char * out) {
+    uint8_t byteOut[RS_ADDRESS_BYTE_SIZE];
     const char alphabet[] = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-    idTOByteAccount(accountId, byteOut);
+    idToByteAccount(accountId, byteOut);
     for (size_t i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
         out[i] = alphabet[byteOut[i]];
     }
     out[RS_ADDRESS_BYTE_SIZE] = '\0';
 }
 
-BYTE rscharToIndex(char in) {
+uint8_t rscharToIndex(char in) {
     switch (in) {
     case '2': return 0;
     case '3': return 1;
@@ -98,7 +98,7 @@ BYTE rscharToIndex(char in) {
     }
 }
 
-void maskToByteMask(const char * charMask, BYTE * byteMask, int isSuffix) {
+void maskToByteMask(const char * charMask, uint8_t * byteMask, int32_t isSuffix) {
     char processedMask[18];
 
     if (strlen(charMask) == 0) {
@@ -122,12 +122,12 @@ void maskToByteMask(const char * charMask, BYTE * byteMask, int isSuffix) {
         byteMask[i] = rscharToIndex(processedMask[i]);
     }
     if (byteMask[12] > 15 && byteMask[12] != 32) {
-        printf("Error parsing mask. Char '%c' is not allowed on position 13.\n", byteMask[12]);
+        printf("Error parsing mask. Char '%c' is not allowed on position 13. Use only [23456789ABCDEFGH].\n", byteMask[12]);
         exit(1);
     }
 }
 
-unsigned char matchMask(const BYTE * byteMask, const BYTE * account) {
+uint8_t matchMask(const uint8_t * byteMask, const uint8_t * account) {
     for (size_t i = 0; i < 17; i++) {
         if (byteMask[i] == 32) continue;
         if (byteMask[i] == account[i]) continue;

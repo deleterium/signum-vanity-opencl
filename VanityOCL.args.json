@@ -1,0 +1,14 @@
+{
+  "FileVersion": 2,
+  "Id": "25f0bb2c-635d-4e03-a2b3-100741c28de2",
+  "Items": [
+    {
+      "Id": "c41e0bc0-4c02-4628-ae59-57b697332353",
+      "Command": "AA_"
+    },
+    {
+      "Id": "6eb0c43e-5cfa-487b-998a-e2f7058010cf",
+      "Command": "--cpu"
+    }
+  ]
+}
