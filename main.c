@@ -199,15 +199,13 @@ int main(int argc, char ** argv) {
             nanos = ((seconds * 1000000000LL) + tend.tv_nsec) - tstart.tv_nsec;
             timeInterval = (double) nanos / 1000000000.0;
             uint64_t currentTries = rounds * GlobalConfig.gpuThreads;
-            if (GlobalConfig.endless == 0) {
-                printf(
-                    "\r %llu tries - Lucky chance: %.1f%% - %.0f tries/second...",
-                    PRINTF_CAST currentTries,
-                    luckyChance((double)currentTries, eventChance),
-                    (double) ((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval
-                );
-                fflush(stdout);
-            }
+            printf(
+                "\r %llu tries - Lucky chance: %.1f%% - %.0f tries/second...",
+                PRINTF_CAST currentTries,
+                luckyChance((double)currentTries, eventChance),
+                (double) ((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval
+            );
+            fflush(stdout);
             clock_gettime(CLOCK_REALTIME, &tstart);
             // adjust rounds To print
             if (timeInterval < 0.3) {
@@ -223,19 +221,30 @@ int main(int argc, char ** argv) {
             if (ID[i] == 1) {
                 char rsAddress[RS_ADDRESS_STRING_SIZE];
                 uint64_t newId = solveOnlyOne(secret + i * GlobalConfig.secretLength, rsAddress);
-                printf(
-                    "\nPassphrase: '%*.*s' id: %20llu RS: %s",
-                    (int)GlobalConfig.secretLength,
-                    (int)GlobalConfig.secretLength,
-                    secret + i * GlobalConfig.secretLength,
-                    PRINTF_CAST newId,
-                    rsAddress
-                );
-                fflush(stdout);
                 if (GlobalConfig.endless == 0) {
+                    printf(
+                        "\nPassphrase: '%*.*s' id: %20llu RS: %s\n",
+                        (int)GlobalConfig.secretLength,
+                        (int)GlobalConfig.secretLength,
+                        secret + i * GlobalConfig.secretLength,
+                        PRINTF_CAST newId,
+                        rsAddress
+                    );
+                    fflush(stdout);
                     end = 1;
-                    printf("\nFound in %llu tries\n", PRINTF_CAST rounds * GlobalConfig.gpuThreads);
                     break;
+                } else {
+                    printf(
+                        "\rPassphrase: '%*.*s' id: %20llu RS: %s\n",
+                        (int)GlobalConfig.secretLength,
+                        (int)GlobalConfig.secretLength,
+                        secret + i * GlobalConfig.secretLength,
+                        PRINTF_CAST newId,
+                        rsAddress
+                    );
+                    fflush(stdout);
+                    rounds = 0;
+                    previousRounds = 0;
                 }
             }
         }
