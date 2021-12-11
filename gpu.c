@@ -36,29 +36,34 @@ uint8_t * gpuInit(void) {
 }
 
 void gpuSolver(char * inputBatch, uint8_t * resultBatch) {
-    ret = clEnqueueWriteBuffer(
-        command_queue,
-        clMemPassLength,
-        CL_FALSE,
-        0,
-        sizeof(uint32_t) * 3,
-        passLengthArr,
-        0,
-        NULL,
-        NULL
-    );
-    check_error(ret, 50);
-    ret = clEnqueueWriteBuffer(
-        command_queue,
-        clMemResultMask,
-        CL_FALSE,
-        0,
-        sizeof(uint8_t) * RS_ADDRESS_BYTE_SIZE,
-        GlobalConfig.mask,
-        0,
-        NULL,
-        NULL
-    );
+    static size_t firstRound = 1;
+    if (firstRound) {
+        ret = clEnqueueWriteBuffer(
+            command_queue,
+            clMemPassLength,
+            CL_FALSE,
+            0,
+            sizeof(uint32_t) * 3,
+            passLengthArr,
+            0,
+            NULL,
+            NULL
+        );
+        check_error(ret, 50);
+        ret = clEnqueueWriteBuffer(
+            command_queue,
+            clMemResultMask,
+            CL_FALSE,
+            0,
+            sizeof(uint8_t) * RS_ADDRESS_BYTE_SIZE,
+            GlobalConfig.mask,
+            0,
+            NULL,
+            NULL
+        );
+        firstRound = 0;
+    }
+
     check_error(ret, 51);
     ret = clEnqueueWriteBuffer(
         command_queue,
