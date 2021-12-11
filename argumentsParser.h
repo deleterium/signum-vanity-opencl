@@ -72,7 +72,7 @@ int argumentsParser(int argc, char **argv) {
             if (i >= argc) {
                 endProgram("Expecting value for pass-length.");
             }
-            GlobalConfig.secretLength = (int) strtol(argv[i], NULL, 10);
+            GlobalConfig.secretLength = strtol(argv[i], NULL, 10);
             if (GlobalConfig.secretLength < 40 || GlobalConfig.secretLength > 120){
                 endProgram("Invalid value for pass-length.");
             }

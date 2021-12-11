@@ -10,27 +10,27 @@
 extern struct CONFIG GlobalConfig;
 
 /* Transforms a public key in unsigned long ID */
-unsigned long hashToId(const BYTE * pk) {
-    unsigned long retVal = pk[0];
-    retVal |= ((long) pk[1]) << 8;
-    retVal |= ((long) pk[2]) << 16;
-    retVal |= ((long) pk[3]) << 24;
-    retVal |= ((long) pk[4]) << 32;
-    retVal |= ((long) pk[5]) << 40;
-    retVal |= ((long) pk[6]) << 48;
-    retVal |= ((long) pk[7]) << 56;
+uint64_t hashToId(const uint8_t * pk) {
+    uint64_t retVal = pk[0];
+    retVal |= ((uint64_t) pk[1]) << 8;
+    retVal |= ((uint64_t) pk[2]) << 16;
+    retVal |= ((uint64_t) pk[3]) << 24;
+    retVal |= ((uint64_t) pk[4]) << 32;
+    retVal |= ((uint64_t) pk[5]) << 40;
+    retVal |= ((uint64_t) pk[6]) << 48;
+    retVal |= ((uint64_t) pk[7]) << 56;
     return retVal;
 }
 
-unsigned char * cpuInit(void) {
-    unsigned char * resultBuffer;
-    resultBuffer = (unsigned char *) malloc(GlobalConfig.gpuThreads * sizeof(unsigned char));
+uint8_t * cpuInit(void) {
+    uint8_t * resultBuffer;
+    resultBuffer = (uint8_t *) malloc(GlobalConfig.gpuThreads * sizeof(uint8_t));
     if (resultBuffer == NULL) {
         printf("Cannot allocate memory for result buffer\n");
         exit(1);
     }
 
-#ifdef LINUX
+#ifdef OS_LINUX
     FILE *cpuinfo = fopen("/proc/cpuinfo", "rb");
     if (cpuinfo != NULL) {
         char *arg = 0;
@@ -51,14 +51,14 @@ unsigned char * cpuInit(void) {
     return resultBuffer;
 }
 
-void cpuSolver(const char * passphraseBatch, unsigned char * foundBatch) {
-    BYTE publicKey[SHA256_DIGEST_LENGTH];
-    BYTE privateKey[SHA256_DIGEST_LENGTH];
-    BYTE fullId[SHA256_DIGEST_LENGTH];
-    BYTE rsAccount[RS_ADDRESS_BYTE_SIZE];
+void cpuSolver(const char * passphraseBatch, uint8_t * foundBatch) {
+    uint8_t publicKey[SHA256_DIGEST_LENGTH];
+    uint8_t privateKey[SHA256_DIGEST_LENGTH];
+    uint8_t fullId[SHA256_DIGEST_LENGTH];
+    uint8_t rsAccount[RS_ADDRESS_BYTE_SIZE];
     SHA256_CTX ctx;
 
-    for (int i = 0; i < GlobalConfig.gpuThreads; i++) {
+    for (size_t i = 0; i < GlobalConfig.gpuThreads; i++) {
         SHA256_Init(&ctx);
         SHA256_Update(&ctx, passphraseBatch + GlobalConfig.secretLength * i, GlobalConfig.secretLength);
         SHA256_Final(privateKey, &ctx);
@@ -66,19 +66,18 @@ void cpuSolver(const char * passphraseBatch, unsigned char * foundBatch) {
         SHA256_Init(&ctx);
         SHA256_Update(&ctx, publicKey, SHA256_DIGEST_LENGTH);
         SHA256_Final(fullId, &ctx);
-        unsigned long id = hashToId(fullId);
-        idTOByteAccount(id, rsAccount);
+        uint64_t id = hashToId(fullId);
+        idToByteAccount(id, rsAccount);
         foundBatch[i] = matchMask(GlobalConfig.mask, rsAccount);
     }
 }
 
-unsigned long solveOnlyOne(const char * passphrase, char * rsAddress){
-    BYTE publicKey[SHA256_DIGEST_LENGTH];
-    BYTE privateKey[SHA256_DIGEST_LENGTH];
-    BYTE fullId[SHA256_DIGEST_LENGTH];
-    BYTE rsAccount[RS_ADDRESS_BYTE_SIZE];
+uint64_t solveOnlyOne(const char * passphrase, char * rsAddress){
+    uint8_t publicKey[SHA256_DIGEST_LENGTH];
+    uint8_t privateKey[SHA256_DIGEST_LENGTH];
+    uint8_t fullId[SHA256_DIGEST_LENGTH];
     SHA256_CTX ctx;
-    unsigned long id;
+    uint64_t id;
 
     SHA256_Init(&ctx);
     SHA256_Update(&ctx, passphrase, GlobalConfig.secretLength);
@@ -88,6 +87,6 @@ unsigned long solveOnlyOne(const char * passphrase, char * rsAddress){
     SHA256_Update(&ctx, publicKey, SHA256_DIGEST_LENGTH);
     SHA256_Final(fullId, &ctx);
     id = hashToId(fullId);
-    idTOAccount(id, rsAddress);
+    idToAccount(id, rsAddress);
     return id;
 }

@@ -15,20 +15,34 @@
 
 struct CONFIG GlobalConfig;
 
+#ifdef OS_WINDOWS
+#include <Windows.h>
+#include <sysinfoapi.h>
+#define CLOCK_REALTIME 0
+int clock_gettime(int noNeed, struct timespec* spec) {
+    __int64 wintime;
+    GetSystemTimeAsFileTime((FILETIME*)&wintime);
+    wintime -= 116444736000000000i64;  //1jan1601 to 1jan1970
+    spec->tv_sec = wintime / 10000000i64; //seconds
+    spec->tv_nsec = wintime % 10000000i64 * 100; //nano-seconds
+    return 0;
+}
+#endif
+
 /**
  * Creates a random string inside buffer, with length size. The generated
  * string will contain ASCII characters from '!' to 'z'. Mininium 40 chars
  * to have 256-bit output. */
 void randstring(char * buffer, size_t length) {
     if (GlobalConfig.charset[0] == 0) {
-        for (int n = 0; n < length; n++) {
+        for (size_t n = 0; n < length; n++) {
             char key = rand() % 89;
             buffer[n] = '!' + key;
         }
     } else {
-        int charsetLength = strlen(GlobalConfig.charset);
-        for (int n = 0; n < length; n++) {
-            int key = rand() % charsetLength;
+        int32_t charsetLength = (int32_t)strlen(GlobalConfig.charset);
+        for (size_t n = 0; n < length; n++) {
+            size_t key = rand() % charsetLength;
             buffer[n] = GlobalConfig.charset[key];
         }
     }
@@ -50,7 +64,7 @@ void incSecret(char * secret, size_t position) {
             printf("Internal error\n");
             exit(2);
         }
-        int height = (int)(currCharHeight - GlobalConfig.charset);
+        size_t height = (size_t)(currCharHeight - GlobalConfig.charset);
         if (height == strlen(GlobalConfig.charset) - 1) {
             secret[position] = GlobalConfig.charset[0];
             incSecret(secret, position + 1);
@@ -61,8 +75,8 @@ void incSecret(char * secret, size_t position) {
 }
 
 void initRand(void) {
-    unsigned int randomData;
-#ifdef LINUX
+    uint32_t randomData;
+#ifdef OS_LINUX
     FILE *random = fopen("/dev/random", "rb");
     if (random != NULL) {
         if (fread (&randomData,sizeof(randomData), 1, random) == 1) {
@@ -77,30 +91,37 @@ void initRand(void) {
 #endif
     struct timespec now;
     if (clock_gettime(CLOCK_REALTIME, &now) == 0) {
-        randomData = (unsigned int)(now.tv_sec ^ now.tv_nsec);
+        randomData = (uint32_t)(now.tv_sec ^ now.tv_nsec);
         srand(randomData);
         printf("Got random seed from current microseconds.\n");
         return;
     }
-    srand(time(NULL) * 80 + 34634);
+    srand((uint32_t)time(NULL) * 80 + 34634);
     printf("Not good.. Got random seed from current second...\n");
 }
 
-float getPassphraseStrength(void) {
-    int i;
+double getPassphraseStrength(void) {
+    size_t i;
     char * foundChar;
-    float passStrength;
+    double passStrength;
     if (GlobalConfig.charset[0] == 0) {
-        passStrength = log2(pow(89.0, (float)GlobalConfig.secretLength));
+        passStrength = log2(pow(89.0, (double)GlobalConfig.secretLength));
     } else {
-        for (i=0; i< strlen(GlobalConfig.charset) - 1; i++) {
-            foundChar = strchr(GlobalConfig.charset+i+1, (int)GlobalConfig.charset[i]);
-            if (foundChar != NULL) {
-                printf("Wrong charset. Found a repeated char.\n");
+        size_t charsetLength = strlen(GlobalConfig.charset);
+        for (i=0; i< charsetLength; i++) {
+            if (i < charsetLength - 1) {
+                foundChar = strchr(GlobalConfig.charset+i+1, (int)GlobalConfig.charset[i]);
+                if (foundChar != NULL) {
+                    printf("Wrong charset. Found a repeated char.\n");
+                    exit(1);
+                }
+            }
+            if (GlobalConfig.charset[i] < 32 || GlobalConfig.charset[i] > 126) {
+                printf("No special (unicode) chars are allowed in charset.\n");
                 exit(1);
             }
         }
-        passStrength = log2(pow((float)strlen(GlobalConfig.charset), (float)GlobalConfig.secretLength));
+        passStrength = log2(pow((double)strlen(GlobalConfig.charset), (double)GlobalConfig.secretLength));
     }
     if (passStrength < 256.0) {
         printf("Weak passphrase detected. It is %.f bits strong. It must be greater than 256 bits. Increase pass-length or increase charset length.\n", passStrength);
@@ -109,36 +130,36 @@ float getPassphraseStrength(void) {
     return passStrength;
 }
 
-float estimate90percent(float findingChance) {
+double estimate90percent(double findingChance) {
     return (-1.0 / log10((1.0 - findingChance)));
 }
 
-float findingChance(BYTE * byteMask) {
-    float events = 1.0;
+double findingChance(uint8_t * byteMask) {
+    double events = 1.0;
     for (size_t i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
-        if (byteMask[i] != 32) events *= 32;
+        if (byteMask[i] != 32) events *= 32.0;
     }
     return (1.0/events);
 }
 
-float luckyChance(float numberOfEvents, float findingChance) {
+double luckyChance(double numberOfEvents, double findingChance) {
     return (1.0 - pow(1.0 - findingChance,numberOfEvents)) * 100.0;
 }
 
 int main(int argc, char ** argv) {
-    unsigned char * ID;
+    uint8_t * ID;
     char * secret;
     struct timespec tstart, tend;
-    long seconds, nanos;
-    float eventChance;
-    float timeInterval;
-    unsigned long roundsToPrint = 1;
-    unsigned long end = 0;
-    unsigned long rounds = 0;
-    unsigned long previousRounds = 0;
+    int64_t seconds, nanos;
+    double eventChance;
+    double timeInterval;
+    uint64_t roundsToPrint = 1;
+    uint64_t end = 0;
+    uint64_t rounds = 0;
+    uint64_t previousRounds = 0;
     int maskIndex;
 
-    int i;
+    size_t i;
 
     initRand();
     maskIndex = argumentsParser(argc, argv);
@@ -148,9 +169,7 @@ int main(int argc, char ** argv) {
         printf("Cannot allocate memory for passphrases buffer\n");
         exit(1);
     }
-    for (i = 0; i < GlobalConfig.gpuThreads; i++) {
-        randstring(&secret[GlobalConfig.secretLength * i], GlobalConfig.secretLength);
-    }
+    randstring(secret, GlobalConfig.secretLength * GlobalConfig.gpuThreads);
     if (GlobalConfig.useGpu) {
         ID = gpuInit();
     } else {
@@ -174,18 +193,18 @@ int main(int argc, char ** argv) {
             cpuSolver(secret, ID);
         }
         ++rounds;
-        if ((rounds % roundsToPrint) == 0L) {
+        if ((rounds % roundsToPrint) == 0) {
             clock_gettime(CLOCK_REALTIME, &tend);
             seconds = (tend.tv_sec - tstart.tv_sec);
-            nanos = ((seconds * 1000000000) + tend.tv_nsec) - tstart.tv_nsec;
-            timeInterval = (float) nanos / 1000000000.0;
-            unsigned long currentTries = rounds * GlobalConfig.gpuThreads;
+            nanos = ((seconds * 1000000000LL) + tend.tv_nsec) - tstart.tv_nsec;
+            timeInterval = (double) nanos / 1000000000.0;
+            uint64_t currentTries = rounds * GlobalConfig.gpuThreads;
             if (GlobalConfig.endless == 0) {
                 printf(
-                    "\r %lu tries - Lucky chance: %.1f%% - %.0f tries/second...",
-                    currentTries,
-                    luckyChance((float)currentTries, eventChance),
-                    (float) ((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval
+                    "\r %llu tries - Lucky chance: %.1f%% - %.0f tries/second...",
+                    PRINTF_CAST currentTries,
+                    luckyChance((double)currentTries, eventChance),
+                    (double) ((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval
                 );
                 fflush(stdout);
             }
@@ -194,7 +213,7 @@ int main(int argc, char ** argv) {
             if (timeInterval < 0.3) {
                 roundsToPrint *= 2;
             }
-            if (timeInterval > 1) {
+            if (timeInterval > 1.0) {
                 roundsToPrint /= 2;
                 if (roundsToPrint == 0) roundsToPrint++;
             }
@@ -203,19 +222,19 @@ int main(int argc, char ** argv) {
         for (i = 0; i < GlobalConfig.gpuThreads; i++) {
             if (ID[i] == 1) {
                 char rsAddress[RS_ADDRESS_STRING_SIZE];
-                unsigned long newId = solveOnlyOne(secret + i * GlobalConfig.secretLength, rsAddress);
+                uint64_t newId = solveOnlyOne(secret + i * GlobalConfig.secretLength, rsAddress);
                 printf(
-                    "\nPassphrase: '%*.*s' id: %20lu RS: %s",
-                    GlobalConfig.secretLength,
-                    GlobalConfig.secretLength,
+                    "\nPassphrase: '%*.*s' id: %20llu RS: %s",
+                    (int)GlobalConfig.secretLength,
+                    (int)GlobalConfig.secretLength,
                     secret + i * GlobalConfig.secretLength,
-                    newId,
+                    PRINTF_CAST newId,
                     rsAddress
                 );
                 fflush(stdout);
                 if (GlobalConfig.endless == 0) {
                     end = 1;
-                    printf("\nFound in %lu tries\n", rounds * GlobalConfig.gpuThreads);
+                    printf("\nFound in %llu tries\n", PRINTF_CAST rounds * GlobalConfig.gpuThreads);
                     break;
                 }
             }
@@ -226,8 +245,8 @@ int main(int argc, char ** argv) {
     for (i = 0; i < GlobalConfig.gpuThreads; i++) {
         printf(
             "'%*.*s': %x\n",
-            GlobalConfig.secretLength,
-            GlobalConfig.secretLength,
+            (int)GlobalConfig.secretLength,
+            (int)GlobalConfig.secretLength,
             secret + i * GlobalConfig.secretLength,
             ID[i]
         );
