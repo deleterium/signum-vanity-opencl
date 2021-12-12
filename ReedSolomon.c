@@ -88,7 +88,7 @@ uint8_t rscharToIndex(char in) {
     case 'U': return 26;
     case 'V': return 27;
     case 'W': return 28;
-    case 'X': return 39;
+    case 'X': return 29;
     case 'Y': return 30;
     case 'Z': return 31;
     case '_': return 32;
