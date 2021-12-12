@@ -215,24 +215,24 @@ int main(int argc, char ** argv) {
                 uint64_t newId = solveOnlyOne(secret + i * GlobalConfig.secretLength, rsAddress);
                 if (GlobalConfig.endless == 0) {
                     printf(
-                        "\nPassphrase: '%*.*s' id: %20llu RS: %s\n",
+                        "\nPassphrase: '%*.*s' RS: S-%s id: %20llu\n",
                         (int)GlobalConfig.secretLength,
                         (int)GlobalConfig.secretLength,
                         secret + i * GlobalConfig.secretLength,
-                        PRINTF_CAST newId,
-                        rsAddress
+                        rsAddress,
+                        PRINTF_CAST newId
                     );
                     fflush(stdout);
                     end = 1;
                     break;
                 } else {
                     printf(
-                        "\rPassphrase: '%*.*s' id: %20llu RS: S-%s\n",
+                        "\rPassphrase: '%*.*s' RS: S-%s id: %20llu\n",
                         (int)GlobalConfig.secretLength,
                         (int)GlobalConfig.secretLength,
                         secret + i * GlobalConfig.secretLength,
-                        PRINTF_CAST newId,
-                        rsAddress
+                        rsAddress,
+                        PRINTF_CAST newId
                     );
                     fflush(stdout);
                     rounds = 0;
