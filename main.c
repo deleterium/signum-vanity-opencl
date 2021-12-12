@@ -134,14 +134,6 @@ double estimate90percent(double findingChance) {
     return (-1.0 / log10((1.0 - findingChance)));
 }
 
-double findingChance(uint8_t * byteMask) {
-    double events = 1.0;
-    for (size_t i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
-        if (byteMask[i] != 32) events *= 32.0;
-    }
-    return (1.0/events);
-}
-
 double luckyChance(double numberOfEvents, double findingChance) {
     return (1.0 - pow(1.0 - findingChance,numberOfEvents)) * 100.0;
 }
@@ -149,6 +141,7 @@ double luckyChance(double numberOfEvents, double findingChance) {
 int main(int argc, char ** argv) {
     uint8_t * ID;
     char * secret;
+    char printMask[RS_ADDRESS_STRING_SIZE];
     struct timespec tstart, tend;
     int64_t seconds, nanos;
     double eventChance;
@@ -176,6 +169,8 @@ int main(int argc, char ** argv) {
         ID = cpuInit();
     }
 
+    byteMaskToPrintMask(GlobalConfig.mask, printMask);
+    printf("Using MASK %s\n", printMask);
     printf("Your passphrase will be %.f bits strong!\n", getPassphraseStrength());
     eventChance = findingChance(GlobalConfig.mask);
     printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", estimate90percent(eventChance));
@@ -199,15 +194,13 @@ int main(int argc, char ** argv) {
             nanos = ((seconds * 1000000000LL) + tend.tv_nsec) - tstart.tv_nsec;
             timeInterval = (double) nanos / 1000000000.0;
             uint64_t currentTries = rounds * GlobalConfig.gpuThreads;
-            if (GlobalConfig.endless == 0) {
-                printf(
-                    "\r %llu tries - Lucky chance: %.1f%% - %.0f tries/second...",
-                    PRINTF_CAST currentTries,
-                    luckyChance((double)currentTries, eventChance),
-                    (double) ((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval
-                );
-                fflush(stdout);
-            }
+            printf(
+                "\r %llu tries - Lucky chance: %.1f%% - %.0f tries/second...",
+                PRINTF_CAST currentTries,
+                luckyChance((double)currentTries, eventChance),
+                (double) ((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval
+            );
+            fflush(stdout);
             clock_gettime(CLOCK_REALTIME, &tstart);
             // adjust rounds To print
             if (timeInterval < 0.3) {
@@ -223,19 +216,30 @@ int main(int argc, char ** argv) {
             if (ID[i] == 1) {
                 char rsAddress[RS_ADDRESS_STRING_SIZE];
                 uint64_t newId = solveOnlyOne(secret + i * GlobalConfig.secretLength, rsAddress);
-                printf(
-                    "\nPassphrase: '%*.*s' id: %20llu RS: %s",
-                    (int)GlobalConfig.secretLength,
-                    (int)GlobalConfig.secretLength,
-                    secret + i * GlobalConfig.secretLength,
-                    PRINTF_CAST newId,
-                    rsAddress
-                );
-                fflush(stdout);
                 if (GlobalConfig.endless == 0) {
+                    printf(
+                        "\nPassphrase: '%*.*s' RS: S-%s id: %20llu\n",
+                        (int)GlobalConfig.secretLength,
+                        (int)GlobalConfig.secretLength,
+                        secret + i * GlobalConfig.secretLength,
+                        rsAddress,
+                        PRINTF_CAST newId
+                    );
+                    fflush(stdout);
                     end = 1;
-                    printf("\nFound in %llu tries\n", PRINTF_CAST rounds * GlobalConfig.gpuThreads);
                     break;
+                } else {
+                    printf(
+                        "\rPassphrase: '%*.*s' RS: S-%s id: %20llu\n",
+                        (int)GlobalConfig.secretLength,
+                        (int)GlobalConfig.secretLength,
+                        secret + i * GlobalConfig.secretLength,
+                        rsAddress,
+                        PRINTF_CAST newId
+                    );
+                    fflush(stdout);
+                    rounds = 0;
+                    previousRounds = 0;
                 }
             }
         }

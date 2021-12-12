@@ -20,23 +20,31 @@ Hashing at 2M tries per second on RX470. This is 33 times faster than using cpu,
 
 # Help
 ```
-Usage: vanity [OPTION [ARG]] ... MASK
+Password generator for vanity addresses on Signum cryptocurrency.
+
+Usage: vanity [OPTION [ARG]] ... MASK [OPTION [ARG]] ...
   --help             Show this help statement
-  --suffix           Match given mask at the end of address
+  --suffix           Match given mask from the end of address. Default is
+                       to match from the beginning
   --pass-length N    Passphrase length. 40 to 120 chars. Default: 64
-  --cpu              Set to use CPU. Using it disables using GPU.
-  --gpu              Set to use GPU. Default is to use.
-  --gpu-platform N   Select GPU from platorm N
-  --gpu-device N     Select GPU device N
-  --gpu-threads N    Send a batch of N threads
-  --gpu-work-size N  Select N concurrent works
+  --cpu              Set to use CPU and disable using GPU
+  --gpu              Set to use GPU. Already is default
+  --gpu-platform N   Select GPU from platorm N. Default: 0
+  --gpu-device N     Select GPU device N. Default: 0
+  --gpu-threads N    Send a batch of N threads. Default: 16384
+  --gpu-work-size N  Select N concurrent works. Default: 64
   --endless          Never stop finding passphrases
   --use-charset ABC  Generate passwords only containing the ABC chars
 
-  MASK   Desired address. Use '_' for any char at that location. Must
-be at least one char and maximum 17 chars. No 0, O, I or 1 allowed.
-
-Example: vanity --gpu --gpu-threads 102400 --gpu-work-size 32 V_A_N_I
+  MASK   Rules for the desired address. It must be at least one char long.
+    No 0, O, I or 1 are allowed. Sometimes it is needed to embrace MASK
+    with ' or " chars. Following wildcars can be used:
+      ?: Matches any char
+      @: Matches only letters
+      #: Matches only numbers
+      -: Use to organize MASK, does not affect result
+\n\
+Example: vanity --gpu --gpu-threads 102400 --gpu-work-size 32 V#N_@ --pass-length 40\n";
 ```
 
 * Define a custom charset and a custom passphrase length for paranoid levels of security
@@ -50,7 +58,7 @@ Example: vanity --gpu --gpu-threads 102400 --gpu-work-size 32 V_A_N_I
 ## Linux
 * Dependencies: build-essential, OpenSSL and OpenCL driver installed for your graphics card
 * Clone repository
-* Compile `gcc -o vanity main.c cpu.c gpu.c ReedSolomon.c ed25519-donna/ed25519.c -m64 -lcrypto -lOpenCL -lm -DLINUX -O2`
+* Compile `gcc -o vanity main.c cpu.c gpu.c ReedSolomon.c ed25519-donna/ed25519.c -m64 -lcrypto -lOpenCL -lm -O2`
 
 ## Windows
 * Dependencies: (Visual Studio Community Edition)[https://visualstudio.microsoft.com/vs/community/], (OpenSSL library)[https://slproweb.com/products/Win32OpenSSL.html] and OpenCL SDK for your graphics card: (AMD)[https://github.com/GPUOpen-LibrariesAndSDKs/OCL-SDK] (Compilation not tested for NVIDIA or Intel graphics)

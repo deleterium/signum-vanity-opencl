@@ -1,3 +1,7 @@
 a.out
 vanity
-.vscode
+vanity-debug
+.vs*
+x64
+binaries*
+temp

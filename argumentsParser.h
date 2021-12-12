@@ -7,24 +7,28 @@
 extern struct CONFIG GlobalConfig;
 
 char helpString[] = "\
-Password generator for vanity addresses on signum cryptocurrency.\n\
+Password generator for vanity addresses on Signum cryptocurrency.\n\
 \n\
-Usage: vanity [OPTION [ARG]] ... MASK\n\
+Usage: vanity [OPTION [ARG]] ... MASK [OPTION [ARG]] ...\n\
   --help             Show this help statement\n\
-  --suffix           Match given mask at the end of address\n\
+  --suffix           Match given mask from the end of address. Default is to match from the beginning\n\
   --pass-length N    Passphrase length. 40 to 120 chars. Default: 64\n\
-  --cpu              Set to use CPU. Using it disables using GPU.\n\
-  --gpu              Set to use GPU. Default is to use.\n\
-  --gpu-platform N   Select GPU from platorm N\n\
-  --gpu-device N     Select GPU device N\n\
-  --gpu-threads N    Send a batch of N threads\n\
-  --gpu-work-size N  Select N concurrent works\n\
+  --cpu              Set to use CPU and disable using GPU\n\
+  --gpu              Set to use GPU. Already is default\n\
+  --gpu-platform N   Select GPU from platorm N. Default: 0\n\
+  --gpu-device N     Select GPU device N. Default: 0\n\
+  --gpu-threads N    Send a batch of N threads. Default: 16384\n\
+  --gpu-work-size N  Select N concurrent works. Default: 64\n\
   --endless          Never stop finding passphrases\n\
   --use-charset ABC  Generate passwords only containing the ABC chars\n\
 \n\
-  MASK   Desired address. Use '_' for any char at that location. Must be at least one char and maximum 17 chars. No 0, O, I or 1 allowed.\n\
+  MASK   Rules for the desired address. It must be at least one char long. No 0, O, I or 1 are allowed. Sometimes it is needed to embrace MASK with ' or \" chars. Following wildcars can be used:\n\
+      ?: Matches any char\n\
+      @: Matches only letters\n\
+      #: Matches only numbers\n\
+      -: Use to organize MASK, does not affect result\n\
 \n\
-Example: vanity --gpu --gpu-threads 102400 --gpu-work-size 32 V_A_N_I\n";
+Example: vanity --gpu --gpu-threads 102400 --gpu-work-size 32 V#N_@ --pass-length 40\n";
 
 void endProgram(const char * errorString) {
     printf("%s\n", errorString);
