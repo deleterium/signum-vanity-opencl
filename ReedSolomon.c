@@ -4,6 +4,7 @@
 #include "ReedSolomon.h"
 
 #define ginv(a) (gexp[31 - glog[a]])
+#define BASE_32_LENGTH 13
 
 const uint8_t gexp[] = {
     1, 2, 4, 8, 16, 5, 10, 20, 13, 26, 17, 7, 14, 28, 29, 31,
@@ -25,15 +26,13 @@ uint8_t gmult(uint8_t a, uint8_t b) {
 
 void idToByteAccount(uint64_t accountId, uint8_t * out) {
     uint8_t codeword[RS_ADDRESS_BYTE_SIZE];
-    const size_t base32Length = 13;
     uint8_t p[] = {0, 0, 0, 0};
-    size_t i;
-    for (i = 0; i < base32Length; i++){
+    for (size_t i = 0; i < BASE_32_LENGTH; i++) {
         codeword[i] = accountId % 32;
         accountId >>= 5;
     }
-    for (i = base32Length - 1; i < base32Length; i--) {
-        uint8_t fb = codeword[i] ^ p[3];
+    for (size_t i = BASE_32_LENGTH; i != 0; i--) {
+        uint8_t fb = codeword[i - 1] ^ p[3];
         p[3] = p[2] ^ gmult(30, fb);
         p[2] = p[1] ^ gmult(6, fb);
         p[1] = p[0] ^ gmult(9, fb);
@@ -43,7 +42,7 @@ void idToByteAccount(uint64_t accountId, uint8_t * out) {
     codeword[14] = p[1];
     codeword[15] = p[2];
     codeword[16] = p[3];
-    for (i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
+    for (size_t i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
         out[i] = codeword[cwmap[i]];
     }
 }

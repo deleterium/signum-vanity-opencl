@@ -2261,34 +2261,40 @@ ge25519_scalarmult_base_niels(ge25519 *r, const bignum256modm s) {
 	}
 }
 
-#define BYTE_ADDRESS_SIZE 17
+#define RS_ADDRESS_BYTE_SIZE 17
 
-typedef unsigned char BYTE;
-
-__constant BYTE gexp[] = {1, 2, 4, 8, 16, 5, 10, 20, 13, 26, 17, 7, 14, 28, 29, 31, 27, 19, 3, 6, 12, 24, 21, 15, 30, 25, 23, 11, 22, 9, 18, 1};
-__constant BYTE glog[] = {0, 0, 1, 18, 2, 5, 19, 11, 3, 29, 6, 27, 20, 8, 12, 23, 4, 10, 30, 17, 7, 22, 28, 26, 21, 25, 9, 16, 13, 14, 24, 15};
-__constant BYTE cwmap[] = {3, 2, 1, 0, 7, 6, 5, 4, 13, 14, 15, 16, 12, 8, 9, 10, 11};
+__constant uchar gexp[] = {
+    1, 2, 4, 8, 16, 5, 10, 20, 13, 26, 17, 7, 14, 28, 29, 31,
+    27, 19, 3, 6, 12, 24, 21, 15, 30, 25, 23, 11, 22, 9, 18, 1
+};
+__constant uchar glog[] = {
+    0, 0, 1, 18, 2, 5, 19, 11, 3, 29, 6, 27, 20, 8, 12, 23,
+    4, 10, 30, 17, 7, 22, 28, 26, 21, 25, 9, 16, 13, 14, 24, 15
+};
+__constant uchar cwmap[] = {
+    3, 2, 1, 0, 7, 6, 5, 4, 13, 14, 15, 16, 12, 8, 9, 10, 11
+};
 
 #define ginv(a) (gexp[31 - glog[a]])
 
-BYTE gmult(BYTE a, BYTE b) {
+uchar gmult(uchar a, uchar b) {
     if (a == 0 || b == 0) {
         return 0;
     }
     return gexp[ (glog[a] + glog[b]) % 31 ];
 }
 
-void idTOByteAccount(unsigned long accountId, BYTE * out) {
-    BYTE codeword[BYTE_ADDRESS_SIZE];
-    const BYTE base32Length = 13;
-    BYTE p[] = {0, 0, 0, 0};
-    size_t i;
-    for (i=0; i<base32Length; i++){
+#define BASE_32_LENGTH 13
+
+void idToByteAccount(ulong accountId, uchar * out) {
+    uchar codeword[RS_ADDRESS_BYTE_SIZE];
+    uchar p[] = {0, 0, 0, 0};
+    for (size_t i = 0; i < BASE_32_LENGTH; i++) {
         codeword[i] = accountId % 32;
         accountId >>= 5;
     }
-    for (i = base32Length-1; i<base32Length; i--) {
-        BYTE fb = codeword[i] ^ p[3];
+    for (size_t i = BASE_32_LENGTH; i != 0; i--) {
+        uchar fb = codeword[i - 1] ^ p[3];
         p[3] = p[2] ^ gmult(30, fb);
         p[2] = p[1] ^ gmult(6, fb);
         p[1] = p[0] ^ gmult(9, fb);
@@ -2298,39 +2304,42 @@ void idTOByteAccount(unsigned long accountId, BYTE * out) {
     codeword[14] = p[1];
     codeword[15] = p[2];
     codeword[16] = p[3];
-    for (i = 0; i < BYTE_ADDRESS_SIZE; i++) {
+    for (size_t i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
         out[i] = codeword[cwmap[i]];
     }
 }
 
-__kernel void process (__global const uint *passLength, __global char *plain_key2,  __global uchar *digest2, __global const uchar *dataMask) {
-    size_t const thread = get_global_id (0);
+__kernel void process (
+    __global const uint *passLength,
+    __global char *plain_key2,
+    __global uchar *digest2,
+    __global const uchar *dataMask
+) {
+    size_t const thread = get_global_id(0);
     uchar privateKey[32];
     uchar publicKey[32];
     uint passwordHash[8];
     uint fullID[8];
-    char internalPassword[120];
     uint uintPass[30];
     uint passphraseLength = passLength[0];
 
     if (passphraseLength > 120) {
-        digest2[thread]=0;
+        digest2[thread] = 0;
         return;
     }
 
     for (size_t i = 0; i < passphraseLength; i++) {
-        // internalPassword[i] = *(plain_key2 + passphraseLength * thread + i);
-        if (i%4==0) {
-            uintPass[i/4] = (uint) plain_key2[passphraseLength * thread + i];
+        if (i % 4 == 0) {
+            uintPass[i / 4] = (uint) plain_key2[passphraseLength * thread + i];
         } else {
-            uintPass[i/4] |= (uint)plain_key2[passphraseLength * thread + i] << (8 * (i%4));
+            uintPass[i / 4] |= (uint) plain_key2[passphraseLength * thread + i] << (8 * (i % 4));
         }
     }
     sha256_crypt(uintPass, passphraseLength, passwordHash);
 
     for (size_t i = 0; i < 32; i++) {
         // split bytes
-        privateKey[i] = (passwordHash[i/4] >> ((i%4)*8)) & (0xFF);
+        privateKey[i] = (passwordHash[i / 4] >> ((i % 4) * 8)) & 0xFF;
     }
     // clamp hash to get private key
     privateKey[0] &= 0xF8;
@@ -2340,7 +2349,6 @@ __kernel void process (__global const uint *passLength, __global char *plain_key
 	bignum256modm s;
 	bignum25519 ALIGN(16) yplusz, zminusy;
 	ge25519 ALIGN(16) p;
-	size_t i;
 	expand_raw256_modm(s, privateKey);
 	/* scalar * basepoint */
 	ge25519_scalarmult_base_niels(&p, s);
@@ -2352,24 +2360,23 @@ __kernel void process (__global const uint *passLength, __global char *plain_key
 	curve25519_contract(publicKey, yplusz);
 
     for (size_t i = 0; i < 8; i++) {
-        // internalPassword[i] = *(plain_key2 + passphraseLength * thread + i);
-        uintPass[i]=(uint)publicKey[4*i] |
-           (uint)publicKey[4*i+1]<<8 | 
-           (uint)publicKey[4*i+2]<<16 |
-           (uint)publicKey[4*i+3]<<24;
+        uintPass[i] = (uint) publicKey[4 * i] |
+            (uint) publicKey[4 * i + 1] << 8 |
+            (uint) publicKey[4 * i + 2] << 16 |
+            (uint) publicKey[4 * i + 3] << 24;
     }
 
     sha256_crypt(uintPass, 32, fullID);
 
     // Verifies if calculated id matches input mask
-    unsigned long id = (ulong)(fullID[0]) | (ulong)(fullID[1]) << 32;
-    uchar byteRsAccount[17];
-    idTOByteAccount(id,byteRsAccount);
-    for (size_t i=0; i<17; i++) {
+    ulong id = (ulong)(fullID[0]) | (ulong)(fullID[1]) << 32;
+    uchar byteRsAccount[RS_ADDRESS_BYTE_SIZE];
+    idToByteAccount(id, byteRsAccount);
+    for (size_t i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
         if (dataMask[i] == 32) continue;
         if (dataMask[i] == byteRsAccount[i]) continue;
-        digest2[ thread ] = 0;
+        digest2[thread] = 0;
         return;
     }
-    digest2[ thread ] = 1;
+    digest2[thread] = 1;
 }
