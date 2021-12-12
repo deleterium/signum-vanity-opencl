@@ -58,3 +58,6 @@ uint8_t matchMask(const uint8_t * byteMask, const uint8_t * account);
 /** Returns the chance of finding an address in one draw
  * given a byteMask */
 double findingChance(uint8_t * byteMask);
+
+/** From a given byteMask, return a printable user mask */
+void byteMaskToPrintMask(uint8_t * byteMask, char * printMask);

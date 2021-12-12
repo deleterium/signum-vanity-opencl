@@ -16,6 +16,7 @@ const uint8_t glog[] = {
 };
 const uint8_t cwmap[] = {3, 2, 1, 0, 7, 6, 5, 4, 13, 14, 15, 16, 12, 8, 9, 10, 11};
 const char rsAlphabet[] = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+const char rsMaskAlphabet[] = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ?#@";
 
 uint8_t gmult(uint8_t a, uint8_t b) {
     if (a == 0 || b == 0) {
@@ -195,4 +196,15 @@ double findingChance(uint8_t * byteMask) {
         }
     }
     return (1.0/events);
+}
+
+void byteMaskToPrintMask(uint8_t * byteMask, char * printMask) {
+    for (size_t i = 0, j=0; i < RS_ADDRESS_BYTE_SIZE; i++, j++) {
+        if (j==4 || j==9 || j==14) {
+            printMask[j] = '-';
+            j++;
+        }
+        printMask[j] = rsMaskAlphabet[byteMask[i]];
+    }
+    printMask[RS_ADDRESS_STRING_SIZE - 1] = '\0';
 }

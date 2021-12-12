@@ -141,6 +141,7 @@ double luckyChance(double numberOfEvents, double findingChance) {
 int main(int argc, char ** argv) {
     uint8_t * ID;
     char * secret;
+    char printMask[RS_ADDRESS_STRING_SIZE];
     struct timespec tstart, tend;
     int64_t seconds, nanos;
     double eventChance;
@@ -168,6 +169,8 @@ int main(int argc, char ** argv) {
         ID = cpuInit();
     }
 
+    byteMaskToPrintMask(GlobalConfig.mask, printMask);
+    printf("Using MASK %s\n", printMask);
     printf("Your passphrase will be %.f bits strong!\n", getPassphraseStrength());
     eventChance = findingChance(GlobalConfig.mask);
     printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", estimate90percent(eventChance));
