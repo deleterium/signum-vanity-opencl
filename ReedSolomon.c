@@ -50,47 +50,54 @@ void idToByteAccount(uint64_t accountId, uint8_t * out) {
 void idToAccount(uint64_t accountId, char * out) {
     uint8_t byteOut[RS_ADDRESS_BYTE_SIZE];
     idToByteAccount(accountId, byteOut);
-    for (size_t i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
-        out[i] = rsAlphabet[byteOut[i]];
+    for (size_t i = 0, j=0; i < RS_ADDRESS_BYTE_SIZE; i++, j++) {
+        if (j==4 || j==9 || j==14) {
+            out[j] = '-';
+            j++;
+        }
+        out[j] = rsAlphabet[byteOut[i]];
     }
-    out[RS_ADDRESS_BYTE_SIZE] = '\0';
+    out[RS_ADDRESS_STRING_SIZE - 1] = '\0';
 }
 
 uint8_t rscharToIndex(char in) {
     switch (in) {
-    case '2': return 0;
-    case '3': return 1;
-    case '4': return 2;
-    case '5': return 3;
-    case '6': return 4;
-    case '7': return 5;
-    case '8': return 6;
-    case '9': return 7;
-    case 'A': return 8;
-    case 'B': return 9;
-    case 'C': return 10;
-    case 'D': return 11;
-    case 'E': return 12;
-    case 'F': return 13;
-    case 'G': return 14;
-    case 'H': return 15;
-    case 'J': return 16;
-    case 'K': return 17;
-    case 'L': return 18;
-    case 'M': return 19;
-    case 'N': return 20;
-    case 'P': return 21;
-    case 'Q': return 22;
-    case 'R': return 23;
-    case 'S': return 24;
-    case 'T': return 25;
-    case 'U': return 26;
-    case 'V': return 27;
-    case 'W': return 28;
-    case 'X': return 29;
-    case 'Y': return 30;
-    case 'Z': return 31;
-    case '_': return 32;
+    case '2': return MASK_MATCH_2;
+    case '3': return MASK_MATCH_3;
+    case '4': return MASK_MATCH_4;
+    case '5': return MASK_MATCH_5;
+    case '6': return MASK_MATCH_6;
+    case '7': return MASK_MATCH_7;
+    case '8': return MASK_MATCH_8;
+    case '9': return MASK_MATCH_9;
+    case 'A': return MASK_MATCH_A;
+    case 'B': return MASK_MATCH_B;
+    case 'C': return MASK_MATCH_C;
+    case 'D': return MASK_MATCH_D;
+    case 'E': return MASK_MATCH_E;
+    case 'F': return MASK_MATCH_F;
+    case 'G': return MASK_MATCH_G;
+    case 'H': return MASK_MATCH_H;
+    case 'J': return MASK_MATCH_J;
+    case 'K': return MASK_MATCH_K;
+    case 'L': return MASK_MATCH_L;
+    case 'M': return MASK_MATCH_M;
+    case 'N': return MASK_MATCH_N;
+    case 'P': return MASK_MATCH_P;
+    case 'Q': return MASK_MATCH_Q;
+    case 'R': return MASK_MATCH_R;
+    case 'S': return MASK_MATCH_S;
+    case 'T': return MASK_MATCH_T;
+    case 'U': return MASK_MATCH_U;
+    case 'V': return MASK_MATCH_V;
+    case 'W': return MASK_MATCH_W;
+    case 'X': return MASK_MATCH_X;
+    case 'Y': return MASK_MATCH_Y;
+    case 'Z': return MASK_MATCH_Z;
+    case '?': return MASK_MATCH_ANY;
+    case '#': return MASK_MATCH_ANY_NUMBER;
+    case '@': return MASK_MATCH_ANY_LETTER;
+    case '-': return MASK_MATCH_MINUS;
     default:
         printf("Error parsing mask. Char '%c' is not allowed.  Try '--help'.\n", in);
         exit(1) ;
@@ -98,39 +105,94 @@ uint8_t rscharToIndex(char in) {
 }
 
 void maskToByteMask(const char * charMask, uint8_t * byteMask, int32_t isSuffix) {
-    char processedMask[18];
-
-    if (strlen(charMask) == 0) {
+    int32_t charMaskLength = (int32_t) strlen(charMask);
+    if (charMaskLength == 0) {
         printf("Error parsing mask. Mask is empty.\n");
         exit(1);
     }
-    if (strlen(charMask) > 17) {
+    if (charMaskLength > 24) {
         printf("Error parsing mask. Mask is too big.\n");
         exit(1);
     }
-    if (isSuffix == 1) {
-        strcpy(processedMask, "_________________");
-        strcpy(processedMask+17-strlen(charMask), charMask);
-    } else {
-        strcpy(processedMask, charMask);
-    }
     for (size_t i = 0; i < 17; i++) {
-        byteMask[i] = 32;
+        byteMask[i] = MASK_MATCH_ANY;
     }
-    for (size_t i = 0; i < strlen(processedMask); i++) {
-        byteMask[i] = rscharToIndex(processedMask[i]);
+    if (isSuffix == 1) {
+        int32_t byteMaskIndex = RS_ADDRESS_BYTE_SIZE - 1;
+        int32_t i = charMaskLength - 1;
+        while (i >= 0) {
+            if (byteMaskIndex < 0) {
+                printf("Error parsing mask. Mask is too big..\n");
+                exit(1);
+            }
+            byteMask[byteMaskIndex] = rscharToIndex(charMask[i]);
+            if (byteMask[byteMaskIndex] == MASK_MATCH_MINUS) {
+                byteMask[byteMaskIndex] = MASK_MATCH_ANY;
+                byteMaskIndex++;
+            }
+            i--;
+            byteMaskIndex--;
+        }
+    } else {
+        int32_t byteMaskIndex = 0;
+        int32_t i = 0;
+        while (i < charMaskLength) {
+            if (byteMaskIndex >= RS_ADDRESS_BYTE_SIZE) {
+                printf("Error parsing mask. Mask is too big...\n");
+                exit(1);
+            }
+            byteMask[byteMaskIndex] = rscharToIndex(charMask[i]);
+            if (byteMask[byteMaskIndex] == MASK_MATCH_MINUS) {
+                byteMask[byteMaskIndex] = MASK_MATCH_ANY;
+                byteMaskIndex--;
+            }
+            i++;
+            byteMaskIndex++;
+        }
     }
-    if (byteMask[12] > 15 && byteMask[12] != 32) {
+    if (byteMask[12] >= MASK_MATCH_J && byteMask[12] <= MASK_MATCH_Z) {
         printf("Error parsing mask. Char '%c' is not allowed on position 13. Use only [23456789ABCDEFGH].\n", rsAlphabet[byteMask[12]]);
         exit(1);
     }
 }
 
 uint8_t matchMask(const uint8_t * byteMask, const uint8_t * account) {
-    for (size_t i = 0; i < 17; i++) {
-        if (byteMask[i] == 32) continue;
-        if (byteMask[i] == account[i]) continue;
-        return 0;
+    for (size_t i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
+        switch (byteMask[i]) {
+        case MASK_MATCH_ANY:
+            continue;
+        case MASK_MATCH_ANY_NUMBER:
+            if (account[i] >= MASK_MATCH_A) return 0;
+            continue;
+        case MASK_MATCH_ANY_LETTER:
+            if (account[i] < MASK_MATCH_A) return 0;
+            continue;
+        default:
+            if (byteMask[i] != account[i]) return 0;
+        }
     }
     return 1;
+}
+
+double findingChance(uint8_t * byteMask) {
+    double events = 1.0;
+    for (size_t i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
+        switch (byteMask[i]) {
+        case MASK_MATCH_ANY:
+            break;
+        case MASK_MATCH_ANY_NUMBER:
+            events *= 32.0/8.0;
+            break;
+        case MASK_MATCH_ANY_LETTER:
+            if (i==12) events *= 32.0/8.0;
+            else events *= 32.0/24.0;
+            break;
+        default:
+            // It is a char that was fixed
+            if (i==12) events *= 32.0/16.0;
+            else events *= 32.0;
+            break;
+        }
+    }
+    return (1.0/events);
 }

@@ -134,14 +134,6 @@ double estimate90percent(double findingChance) {
     return (-1.0 / log10((1.0 - findingChance)));
 }
 
-double findingChance(uint8_t * byteMask) {
-    double events = 1.0;
-    for (size_t i = 0; i < RS_ADDRESS_BYTE_SIZE; i++) {
-        if (byteMask[i] != 32) events *= 32.0;
-    }
-    return (1.0/events);
-}
-
 double luckyChance(double numberOfEvents, double findingChance) {
     return (1.0 - pow(1.0 - findingChance,numberOfEvents)) * 100.0;
 }
@@ -235,7 +227,7 @@ int main(int argc, char ** argv) {
                     break;
                 } else {
                     printf(
-                        "\rPassphrase: '%*.*s' id: %20llu RS: %s\n",
+                        "\rPassphrase: '%*.*s' id: %20llu RS: S-%s\n",
                         (int)GlobalConfig.secretLength,
                         (int)GlobalConfig.secretLength,
                         secret + i * GlobalConfig.secretLength,
