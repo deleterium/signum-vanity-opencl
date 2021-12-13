@@ -182,15 +182,16 @@ double findingChance(uint8_t * byteMask) {
         case MASK_MATCH_ANY:
             break;
         case MASK_MATCH_ANY_NUMBER:
-            events *= 32.0/8.0;
+            if (i==12) events *= 16.0/8.0;
+            else events *= 32.0/8.0;
             break;
         case MASK_MATCH_ANY_LETTER:
-            if (i==12) events *= 32.0/8.0;
+            if (i==12) events *= 16.0/8.0;
             else events *= 32.0/24.0;
             break;
         default:
             // It is a char that was fixed
-            if (i==12) events *= 32.0/16.0;
+            if (i==12) events *= 16.0;
             else events *= 32.0;
             break;
         }
