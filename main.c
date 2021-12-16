@@ -168,19 +168,21 @@ int main(int argc, char ** argv) {
     uint64_t end = 0;
     uint64_t rounds = 0;
     uint64_t previousRounds = 0;
+    uint64_t secretBufferSize;
     int maskIndex;
 
     size_t i;
 
     initRand();
     maskIndex = argumentsParser(argc, argv);
+    secretBufferSize = GlobalConfig.secretLength * GlobalConfig.gpuThreads;
     maskToByteMask(argv[maskIndex], GlobalConfig.mask, GlobalConfig.suffix);
-    secret = (char *) malloc(GlobalConfig.secretLength * GlobalConfig.gpuThreads);
+    secret = (char *) malloc(secretBufferSize * 2);
     if (secret == NULL) {
         printf("Cannot allocate memory for passphrases buffer\n");
         exit(1);
     }
-    randstring(secret, GlobalConfig.secretLength * GlobalConfig.gpuThreads);
+    randstring(secret, secretBufferSize * 2);
     if (GlobalConfig.useGpu) {
         ID = gpuInit();
     } else {
@@ -196,35 +198,37 @@ int main(int argc, char ** argv) {
     clock_gettime(CLOCK_REALTIME, &tstart);
 #if MDEBUG == 0
     do {
+        rounds++;
         for (i = 0; i < GlobalConfig.gpuThreads; i++) {
-            incSecret(secret + GlobalConfig.secretLength * i, 0);
+            incSecret(secret + secretBufferSize * ((rounds + 1) % 2) + GlobalConfig.secretLength * i, 0);
         }
 #endif
         if (GlobalConfig.useGpu) {
-            gpuSolver(secret, ID);
+            gpuSolver(secret + secretBufferSize * ((rounds + 1) % 2), ID);
         } else {
-            cpuSolver(secret, ID);
+            cpuSolver(secret + secretBufferSize * (rounds % 2), ID);
         }
-        ++rounds;
         if ((rounds % roundsToPrint) == 0) {
             clock_gettime(CLOCK_REALTIME, &tend);
             seconds = (tend.tv_sec - tstart.tv_sec);
             nanos = ((seconds * 1000000000LL) + tend.tv_nsec) - tstart.tv_nsec;
             timeInterval = (double) nanos / 1000000000.0;
             uint64_t currentTries = rounds * GlobalConfig.gpuThreads;
+            solveOnlyOne(secret + secretBufferSize * (rounds % 2), rsAddress);
             printf(
-                "\r %llu tries - Lucky chance: %.1f%% - %.0f tries/second...",
+                "\r %llu tries - Lucky chance: %.1f%% - %.0f tries/second. Last generated S-%s",
                 PRINTF_CAST currentTries,
                 luckyChance((double)currentTries, eventChance),
-                (double) ((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval
+                (double) ((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval,
+                rsAddress
             );
             fflush(stdout);
             clock_gettime(CLOCK_REALTIME, &tstart);
             // adjust rounds To print
-            if (timeInterval < 0.3) {
+            if (timeInterval < .7) {
                 roundsToPrint *= 2;
             }
-            if (timeInterval > 1.0) {
+            if (timeInterval > 2) {
                 roundsToPrint /= 2;
                 if (roundsToPrint == 0) roundsToPrint++;
             }
@@ -250,23 +254,21 @@ int main(int argc, char ** argv) {
                     break;
                 } else {
                     printf(
-                        "\rPassphrase: '%*.*s' RS: S-%s id: %20llu\n",
-                        (int)GlobalConfig.secretLength,
-                        (int)GlobalConfig.secretLength,
-                        secret + i * GlobalConfig.secretLength,
+                        "\rPassphrase: '%s' RS: S-%s id: %20llu\n",
+                        currentPassphrase,
                         rsAddress,
                         PRINTF_CAST newId
                     );
                     fflush(stdout);
-                    rounds = 0;
-                    previousRounds = 0;
+                    rounds %= 2;
+                    previousRounds = rounds;
                 }
             }
         }
 #if MDEBUG == 0
     } while (end == 0);
 #else
-    for (i = 0; i < GlobalConfig.gpuThreads; i++) {
+    for (i = 0; i < GlobalConfig.gpuThreads * 2; i++) {
         printf(
             "'%*.*s': %x\n",
             (int)GlobalConfig.secretLength,

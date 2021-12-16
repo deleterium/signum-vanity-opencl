@@ -61,10 +61,27 @@ void gpuSolver(char * inputBatch, uint8_t * resultBatch) {
             NULL,
             NULL
         );
+        check_error(ret, 51);
         firstRound = 0;
+        for (size_t i = 0; i < GlobalConfig.gpuThreads; i++) {
+            resultBatch[i] = 0;
+        }
+    } else {
+        // read hashes
+        ret = clEnqueueReadBuffer(
+            command_queue,
+            clMemResult,
+            CL_TRUE,
+            0,
+            sizeof(cl_uchar) * GlobalConfig.gpuThreads,
+            resultBatch,
+            0,
+            NULL,
+            NULL
+        );
+        check_error(ret, 54);
     }
 
-    check_error(ret, 51);
     ret = clEnqueueWriteBuffer(
         command_queue,
         clMemPassphrase,
@@ -89,19 +106,6 @@ void gpuSolver(char * inputBatch, uint8_t * resultBatch) {
         NULL
     );
     check_error(ret, 53);
-    // read hashes
-    ret = clEnqueueReadBuffer(
-        command_queue,
-        clMemResult,
-        CL_TRUE,
-        0,
-        sizeof(cl_uchar) * GlobalConfig.gpuThreads,
-        resultBatch,
-        0,
-        NULL,
-        NULL
-    );
-    check_error(ret, 54);
 }
 
 void load_source() {
