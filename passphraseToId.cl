@@ -2312,6 +2312,9 @@ uchar gmult(uchar a, uchar b) {
 #define MASK_MATCH_ANY_NUMBER 33
 #define MASK_MATCH_ANY_LETTER 34
 #define MASK_MATCH_MINUS 35
+#define MASK_MATCH_CONSONANT 36
+#define MASK_MATCH_VOWEL 37
+#define MASK_MATCH_PREVIOUS 38
 
 void idToByteAccount(ulong accountId, uchar * out) {
     uchar codeword[RS_ADDRESS_BYTE_SIZE];
@@ -2414,6 +2417,29 @@ __kernel void process (
             if (byteRsAccount[i] < MASK_MATCH_A) {
                 digest2[thread] = 0;
                 return;
+            }
+            continue;
+        case MASK_MATCH_VOWEL:
+            if (byteRsAccount[i] < MASK_MATCH_A || (
+                byteRsAccount[i] != MASK_MATCH_A &&
+                byteRsAccount[i] != MASK_MATCH_E &&
+                byteRsAccount[i] != MASK_MATCH_U &&
+                byteRsAccount[i] != MASK_MATCH_Y) ) {
+                digest2[thread] = 0; return;
+            }
+            continue;
+        case MASK_MATCH_CONSONANT:
+            if (byteRsAccount[i] < MASK_MATCH_A ||
+                byteRsAccount[i] == MASK_MATCH_A ||
+                byteRsAccount[i] == MASK_MATCH_E ||
+                byteRsAccount[i] == MASK_MATCH_U ||
+                byteRsAccount[i] == MASK_MATCH_Y) {
+                digest2[thread] = 0; return;
+            }
+            continue;
+        case MASK_MATCH_PREVIOUS:
+            if (byteRsAccount[i] != byteRsAccount[i-1]) {
+                digest2[thread] = 0; return;
             }
             continue;
         default:

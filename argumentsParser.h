@@ -25,8 +25,10 @@ Usage: vanity [OPTION [ARG]] ... MASK [OPTION [ARG]] ...\n\
 \n\
   MASK   Rules for the desired address. It must be at least one char long. No 0, O, I or 1 are allowed. Sometimes it is needed to embrace MASK with ' or \" chars. Following wildcars can be used:\n\
       ?: Matches any char\n\
-      @: Matches only letters\n\
-      #: Matches only numbers\n\
+      @: Matches only letters [A-Z]\n\
+      #: Matches only numbers [2-9]\n\
+      c: Matches consonants [BCDFGHJKLMNPQRSTVWXZ]\n\
+      v: Matches vowels [AEUY]\n\
       -: Use to organize MASK, does not affect result\n\
 \n\
 Example: vanity --gpu --gpu-threads 102400 --gpu-work-size 32 V#N_@ --pass-length 40\n";

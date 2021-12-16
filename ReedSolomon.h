@@ -39,6 +39,9 @@
 #define MASK_MATCH_ANY_NUMBER 33
 #define MASK_MATCH_ANY_LETTER 34
 #define MASK_MATCH_MINUS 35
+#define MASK_MATCH_CONSONANT 36
+#define MASK_MATCH_VOWEL 37
+#define MASK_MATCH_PREVIOUS 38
 
 /** Transforms an account ID into a byte array suitable for
  * comparision with a mask */

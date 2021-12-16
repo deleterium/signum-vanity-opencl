@@ -16,7 +16,7 @@ const uint8_t glog[] = {
 };
 const uint8_t cwmap[] = {3, 2, 1, 0, 7, 6, 5, 4, 13, 14, 15, 16, 12, 8, 9, 10, 11};
 const char rsAlphabet[] = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-const char rsMaskAlphabet[] = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ?#@";
+const char rsMaskAlphabet[] = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ?#@-cvp";
 
 uint8_t gmult(uint8_t a, uint8_t b) {
     if (a == 0 || b == 0) {
@@ -99,6 +99,9 @@ uint8_t rscharToIndex(char in) {
     case '#': return MASK_MATCH_ANY_NUMBER;
     case '@': return MASK_MATCH_ANY_LETTER;
     case '-': return MASK_MATCH_MINUS;
+    case 'c': return MASK_MATCH_CONSONANT;
+    case 'v': return MASK_MATCH_VOWEL;
+    case 'p': return MASK_MATCH_PREVIOUS;
     default:
         printf("Error parsing mask. Char '%c' is not allowed.  Try '--help'.\n", in);
         exit(1) ;
@@ -155,6 +158,10 @@ void maskToByteMask(const char * charMask, uint8_t * byteMask, int32_t isSuffix)
         printf("Error parsing mask. Char '%c' is not allowed on position 13. Use only [23456789ABCDEFGH].\n", rsAlphabet[byteMask[12]]);
         exit(1);
     }
+    if (byteMask[0] == MASK_MATCH_PREVIOUS) {
+        printf("Error parsing mask. Match previous not allowed on first position\n");
+        exit(1);
+    }
 }
 
 uint8_t matchMask(const uint8_t * byteMask, const uint8_t * account) {
@@ -167,6 +174,23 @@ uint8_t matchMask(const uint8_t * byteMask, const uint8_t * account) {
             continue;
         case MASK_MATCH_ANY_LETTER:
             if (account[i] < MASK_MATCH_A) return 0;
+            continue;
+        case MASK_MATCH_VOWEL:
+            if (account[i] < MASK_MATCH_A || (
+                account[i] != MASK_MATCH_A &&
+                account[i] != MASK_MATCH_E &&
+                account[i] != MASK_MATCH_U &&
+                account[i] != MASK_MATCH_Y) ) return 0;
+            continue;
+        case MASK_MATCH_CONSONANT:
+            if (account[i] < MASK_MATCH_A ||
+                account[i] == MASK_MATCH_A ||
+                account[i] == MASK_MATCH_E ||
+                account[i] == MASK_MATCH_U ||
+                account[i] == MASK_MATCH_Y) return 0;
+            continue;
+        case MASK_MATCH_PREVIOUS:
+            if (account[i] != account[i - 1]) return 0;
             continue;
         default:
             if (byteMask[i] != account[i]) return 0;
@@ -188,6 +212,14 @@ double findingChance(uint8_t * byteMask) {
         case MASK_MATCH_ANY_LETTER:
             if (i==12) events *= 16.0/8.0;
             else events *= 32.0/24.0;
+            break;
+        case MASK_MATCH_VOWEL:
+            if (i==12) events *= 16.0/2.0;
+            else events *= 32.0/4.0;
+            break;
+        case MASK_MATCH_CONSONANT:
+            if (i==12) events *= 16.0/6.0;
+            else events *= 32.0/20.0;
             break;
         default:
             // It is a char that was fixed

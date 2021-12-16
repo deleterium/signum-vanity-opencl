@@ -41,8 +41,10 @@ Usage: vanity [OPTION [ARG]] ... MASK [OPTION [ARG]] ...
     No 0, O, I or 1 are allowed. Sometimes it is needed to embrace MASK
     with ' or " chars. Following wildcars can be used:
       ?: Matches any char
-      @: Matches only letters
-      #: Matches only numbers
+      @: Matches only letters [A-Z]
+      #: Matches only numbers [2-9]
+      c: Matches consonants [BCDFGHJKLMNPQRSTVWXZ]
+      v: Matches vowels [AEUY]
       -: Use to organize MASK, does not affect result
 \n\
 Example: vanity --gpu --gpu-threads 102400 --gpu-work-size 32 V#N_@ --pass-length 40\n";
