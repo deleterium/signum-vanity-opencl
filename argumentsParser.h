@@ -21,6 +21,7 @@ Usage: vanity [OPTION [ARG]] ... MASK [OPTION [ARG]] ...\n\
   --gpu-work-size N  Select N concurrent works. Default: 64\n\
   --endless          Never stop finding passphrases\n\
   --use-charset ABC  Generate passwords only containing the ABC chars\n\
+  --append-db        Append (or create) database.csv with found results\n\
 \n\
   MASK   Rules for the desired address. It must be at least one char long. No 0, O, I or 1 are allowed. Sometimes it is needed to embrace MASK with ' or \" chars. Following wildcars can be used:\n\
       ?: Matches any char\n\
@@ -47,6 +48,7 @@ int argumentsParser(int argc, char **argv) {
     GlobalConfig.endless = 0;
     GlobalConfig.suffix = 0;
     GlobalConfig.charset[0] = 0;
+    GlobalConfig.appendDb = 0;
 
     if (argc == 1) {
             endProgram("Usage: vanity [OPTION [ARG]] ... MASK\nTry '--help'.");
@@ -156,6 +158,10 @@ int argumentsParser(int argc, char **argv) {
         }
         if (strcmp(argv[i], "--suffix") == 0) {
             GlobalConfig.suffix = 1;
+            continue;
+        }
+        if (strcmp(argv[i], "--append-db") == 0) {
+            GlobalConfig.appendDb = 1;
             continue;
         }
 

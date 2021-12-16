@@ -35,6 +35,7 @@ Usage: vanity [OPTION [ARG]] ... MASK [OPTION [ARG]] ...
   --gpu-work-size N  Select N concurrent works. Default: 64
   --endless          Never stop finding passphrases
   --use-charset ABC  Generate passwords only containing the ABC chars
+  --append-db        Append (or create) database.csv with found results
 
   MASK   Rules for the desired address. It must be at least one char long.
     No 0, O, I or 1 are allowed. Sometimes it is needed to embrace MASK

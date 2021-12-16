@@ -138,10 +138,28 @@ double luckyChance(double numberOfEvents, double findingChance) {
     return (1.0 - pow(1.0 - findingChance,numberOfEvents)) * 100.0;
 }
 
+void appendDb(char *passphrase, char *address, uint64_t id) {
+    FILE *database = fopen("database.csv", "a");
+    if (database == NULL) {
+        printf("Failed operation to open database file.\n");
+        exit(1);
+    }
+    fprintf(
+        database,
+        "\"%s\",\"%s\",\"%llu\"\n",
+        passphrase,
+        address,
+        PRINTF_CAST id
+    );
+    fclose(database);
+}
+
 int main(int argc, char ** argv) {
     uint8_t * ID;
     char * secret;
     char printMask[RS_ADDRESS_STRING_SIZE];
+    char rsAddress[RS_ADDRESS_STRING_SIZE];
+    char currentPassphrase[121];
     struct timespec tstart, tend;
     int64_t seconds, nanos;
     double eventChance;
@@ -214,14 +232,16 @@ int main(int argc, char ** argv) {
         }
         for (i = 0; i < GlobalConfig.gpuThreads; i++) {
             if (ID[i] == 1) {
-                char rsAddress[RS_ADDRESS_STRING_SIZE];
-                uint64_t newId = solveOnlyOne(secret + i * GlobalConfig.secretLength, rsAddress);
+                memcpy(currentPassphrase, secret + secretBufferSize * (rounds % 2) + i * GlobalConfig.secretLength, GlobalConfig.secretLength);
+                currentPassphrase[GlobalConfig.secretLength]='\0';
+                uint64_t newId = solveOnlyOne(currentPassphrase, rsAddress);
+                if (GlobalConfig.appendDb == 1) {
+                    appendDb(currentPassphrase, rsAddress, newId);
+                }
                 if (GlobalConfig.endless == 0) {
                     printf(
-                        "\nPassphrase: '%*.*s' RS: S-%s id: %20llu\n",
-                        (int)GlobalConfig.secretLength,
-                        (int)GlobalConfig.secretLength,
-                        secret + i * GlobalConfig.secretLength,
+                        "\nPassphrase: '%s' RS: S-%s id: %20llu\n",
+                        currentPassphrase,
                         rsAddress,
                         PRINTF_CAST newId
                     );

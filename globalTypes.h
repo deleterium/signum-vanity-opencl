@@ -39,6 +39,7 @@ struct CONFIG {
         secretLength;
     int32_t useGpu,
         suffix,
+        appendDb,
         endless;
     uint8_t mask[RS_ADDRESS_BYTE_SIZE];
     char charset[120];
