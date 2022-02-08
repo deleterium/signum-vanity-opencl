@@ -21,6 +21,7 @@ Usage: vanity [OPTION [ARG]] ... MASK [OPTION [ARG]] ...\n\
   --gpu-work-size N  Select N concurrent works. Default: 64\n\
   --endless          Never stop finding passphrases\n\
   --use-charset ABC  Generate passwords only containing the ABC chars\n\
+  --use-bip39        Generate passwords with 12 words from BIP-39 list\n\
   --append-db        Append (or create) database.csv with found results\n\
 \n\
   MASK   Rules for the desired address. It must be at least one char long. No 0, O, I or 1 are allowed. Sometimes it is needed to embrace MASK with ' or \" chars. Following wildcars can be used:\n\
@@ -51,6 +52,7 @@ int argumentsParser(int argc, char **argv) {
     GlobalConfig.suffix = 0;
     GlobalConfig.charset[0] = 0;
     GlobalConfig.appendDb = 0;
+    GlobalConfig.useBip39 = 0;
 
     if (argc == 1) {
             endProgram("Usage: vanity [OPTION [ARG]] ... MASK\nTry '--help'.");
@@ -80,6 +82,10 @@ int argumentsParser(int argc, char **argv) {
             if (i >= argc) {
                 endProgram("Expecting value for pass-length.");
             }
+            if (GlobalConfig.useBip39) {
+                endProgram("Option --pass-length conflicts with --use-bip39.");
+            }
+
             GlobalConfig.secretLength = strtol(argv[i], NULL, 10);
             if (GlobalConfig.secretLength < 40 || GlobalConfig.secretLength > 120){
                 endProgram("Invalid value for pass-length.");
@@ -138,6 +144,9 @@ int argumentsParser(int argc, char **argv) {
             if (strlen(argv[i]) > 119) {
                 endProgram("Charset values must be max 119 chars long.");
             }
+            if (GlobalConfig.useBip39) {
+                endProgram("Option --use-charset conflicts with --use-bip39.");
+            }
             strcpy(GlobalConfig.charset, argv[i]);
             continue;
         }
@@ -152,6 +161,11 @@ int argumentsParser(int argc, char **argv) {
         if (strcmp(argv[i], "--cpu") == 0) {
             GlobalConfig.useGpu = 0;
             GlobalConfig.gpuThreads = 256;
+            continue;
+        }
+        if (strcmp(argv[i], "--use-bip39") == 0) {
+            GlobalConfig.useBip39 = 1;
+            GlobalConfig.secretLength = 12;
             continue;
         }
         if (strcmp(argv[i], "--endless") == 0) {

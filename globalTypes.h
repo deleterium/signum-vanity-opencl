@@ -38,6 +38,7 @@ struct CONFIG {
         gpuDevice,
         secretLength;
     int32_t useGpu,
+        useBip39,
         suffix,
         appendDb,
         endless;

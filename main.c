@@ -104,6 +104,9 @@ double getPassphraseStrength(void) {
     size_t i;
     char * foundChar;
     double passStrength;
+    if (GlobalConfig.useBip39 == 1) {
+        return log2(pow(2048.0, 12.0));
+    }
     if (GlobalConfig.charset[0] == 0) {
         passStrength = log2(pow(89.0, (double)GlobalConfig.secretLength));
     } else {
@@ -191,7 +194,7 @@ int main(int argc, char ** argv) {
 
     byteMaskToPrintMask(GlobalConfig.mask, printMask);
     printf("Using MASK %s\n", printMask);
-    printf("Your passphrase will be %.f bits strong!\n", getPassphraseStrength());
+    printf("Your passphrase will be %.f bits strong, if attacker knows the charset and length.\n", getPassphraseStrength());
     eventChance = findingChance(GlobalConfig.mask);
     printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", estimate90percent(eventChance));
 
