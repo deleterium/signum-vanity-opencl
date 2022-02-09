@@ -242,7 +242,7 @@ int main(int argc, char ** argv) {
         if (GlobalConfig.useGpu) {
             gpuSolver(secret + secretBufferSize * ((rounds + 1) % 2), ID);
         } else {
-            cpuSolver(secret + secretBufferSize * (rounds % 2), ID);
+            cpuSolver(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], ID);
         }
         if ((rounds % roundsToPrint) == 0) {
             clock_gettime(CLOCK_REALTIME, &tend);
@@ -250,7 +250,7 @@ int main(int argc, char ** argv) {
             nanos = ((seconds * 1000000000LL) + tend.tv_nsec) - tstart.tv_nsec;
             timeInterval = (double) nanos / 1000000000.0;
             uint64_t currentTries = rounds * GlobalConfig.gpuThreads;
-            solveOnlyOne(secret + secretBufferSize * (rounds % 2), rsAddress);
+            solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], rsAddress);
             printf(
                 "\r %llu tries - Lucky chance: %.1f%% - %.0f tries/second. Last generated S-%s",
                 PRINTF_CAST currentTries,
@@ -272,9 +272,9 @@ int main(int argc, char ** argv) {
         }
         for (i = 0; i < GlobalConfig.gpuThreads; i++) {
             if (ID[i] == 1) {
-                memcpy(currentPassphrase, secret + secretBufferSize * (rounds % 2) + i * GlobalConfig.secretLength, GlobalConfig.secretLength);
-                currentPassphrase[GlobalConfig.secretLength]='\0';
-                uint64_t newId = solveOnlyOne(currentPassphrase, rsAddress);
+                memcpy(currentPassphrase, secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].string, secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].length);
+                currentPassphrase[secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].length]='\0';
+                uint64_t newId = solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i], rsAddress);
                 if (GlobalConfig.appendDb == 1) {
                     appendDb(currentPassphrase, rsAddress, newId);
                 }

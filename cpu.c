@@ -3,8 +3,8 @@
 #include <openssl/sha.h>
 
 #include "ed25519-donna/ed25519.h"
-#include "cpu.h"
 #include "globalTypes.h"
+#include "cpu.h"
 #include "ReedSolomon.h"
 
 extern struct CONFIG GlobalConfig;
@@ -51,7 +51,7 @@ uint8_t * cpuInit(void) {
     return resultBuffer;
 }
 
-void cpuSolver(const char * passphraseBatch, uint8_t * foundBatch) {
+void cpuSolver(const struct PASSPHRASE * passphraseBatch, uint8_t * foundBatch) {
     uint8_t publicKey[SHA256_DIGEST_LENGTH];
     uint8_t privateKey[SHA256_DIGEST_LENGTH];
     uint8_t fullId[SHA256_DIGEST_LENGTH];
@@ -60,7 +60,7 @@ void cpuSolver(const char * passphraseBatch, uint8_t * foundBatch) {
 
     for (size_t i = 0; i < GlobalConfig.gpuThreads; i++) {
         SHA256_Init(&ctx);
-        SHA256_Update(&ctx, passphraseBatch + GlobalConfig.secretLength * i, GlobalConfig.secretLength);
+        SHA256_Update(&ctx, passphraseBatch[i].string, passphraseBatch[i].length);
         SHA256_Final(privateKey, &ctx);
         curved25519_scalarmult_basepoint(publicKey, privateKey);
         SHA256_Init(&ctx);
@@ -72,7 +72,7 @@ void cpuSolver(const char * passphraseBatch, uint8_t * foundBatch) {
     }
 }
 
-uint64_t solveOnlyOne(const char * passphrase, char * rsAddress){
+uint64_t solveOnlyOne(const struct PASSPHRASE * passphrase, char * rsAddress){
     uint8_t publicKey[SHA256_DIGEST_LENGTH];
     uint8_t privateKey[SHA256_DIGEST_LENGTH];
     uint8_t fullId[SHA256_DIGEST_LENGTH];
@@ -80,7 +80,7 @@ uint64_t solveOnlyOne(const char * passphrase, char * rsAddress){
     uint64_t id;
 
     SHA256_Init(&ctx);
-    SHA256_Update(&ctx, passphrase, GlobalConfig.secretLength);
+    SHA256_Update(&ctx, passphrase->string, passphrase->length);
     SHA256_Final(privateKey, &ctx);
     curved25519_scalarmult_basepoint(publicKey, privateKey);
     SHA256_Init(&ctx);
