@@ -14,6 +14,7 @@
 #include "ReedSolomon.h"
 
 struct CONFIG GlobalConfig;
+extern char bipWords[2048][9];
 
 #ifdef OS_WINDOWS
 #include <Windows.h>
@@ -30,47 +31,71 @@ int clock_gettime(int noNeed, struct timespec* spec) {
 #endif
 
 /**
- * Creates a random string inside buffer, with length size. The generated
- * string will contain ASCII characters from '!' to 'z'. Mininium 40 chars
- * to have 256-bit output. */
-void randstring(char * buffer, size_t length) {
-    if (GlobalConfig.charset[0] == 0) {
-        for (size_t n = 0; n < length; n++) {
-            char key = rand() % 89;
-            buffer[n] = '!' + key;
-        }
+ * Populate buffer with random number
+ */
+void seedRand(short * buffer, uint64_t length) {
+    int32_t charsetLen;
+    int32_t passLen = GlobalConfig.secretLength;
+    if (GlobalConfig.useBip39) {
+        charsetLen = 2048;
+    } else if (GlobalConfig.charset[0] == 0) {
+        charsetLen = 89;
     } else {
-        int32_t charsetLength = (int32_t)strlen(GlobalConfig.charset);
-        for (size_t n = 0; n < length; n++) {
-            size_t key = rand() % charsetLength;
-            buffer[n] = GlobalConfig.charset[key];
-        }
+        charsetLen = (int32_t)strlen(GlobalConfig.charset);
+    }
+    for (size_t n = 0; n < length; n++) {
+        buffer[n] = (short)(rand() % charsetLen);
     }
 }
 
 /**
- * Increments one char at secret buffer. No buffer overflow is checked. */
-void incSecret(char * secret, size_t position) {
-    if (GlobalConfig.charset[0] == 0) {
-        if (secret[position] >= 'z') {
-            secret[position] = '!';
-            incSecret(secret, position + 1);
-            return;
+ * Increments one value at aux buffer */
+void incSecretAuxBuf(short * auxBuf, size_t position) {
+    size_t charsetLen = GlobalConfig.secretLength;
+    if (GlobalConfig.useBip39) {
+        charsetLen = 2048;
+    }
+    if (auxBuf[position] >= (short) charsetLen - 1) {
+        auxBuf[position] = 0;
+        if (position == charsetLen - 1) {
+            auxBuf[position] = -1;
+            position = -1;
         }
-        secret[position] += 1;
+        incSecretAuxBuf(auxBuf, position + 1);
+        return;
+    }
+    auxBuf[position]++;
+}
+
+/**
+ * Converts values from auxBuf to a valid PASSPHRASE
+ */
+void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf) {
+    if (GlobalConfig.useBip39) {
+        passBuf->length = (char) sprintf(passBuf->string, "%s %s %s %s %s %s %s %s %s %s %s %s",
+            bipWords[auxBuf[0]],
+            bipWords[auxBuf[1]],
+            bipWords[auxBuf[2]],
+            bipWords[auxBuf[3]],
+            bipWords[auxBuf[4]],
+            bipWords[auxBuf[5]],
+            bipWords[auxBuf[6]],
+            bipWords[auxBuf[7]],
+            bipWords[auxBuf[8]],
+            bipWords[auxBuf[9]],
+            bipWords[auxBuf[10]],
+            bipWords[auxBuf[11]]
+        );
+    } else if (GlobalConfig.charset[0] == 0) {
+        for (size_t n = 0; n < GlobalConfig.secretLength; n++) {
+            passBuf->string[n] = '!' + auxBuf[n];
+        }
+        passBuf->length = GlobalConfig.secretLength;
     } else {
-        char * currCharHeight = strchr(GlobalConfig.charset, (int)secret[position]);
-        if (currCharHeight == NULL) {
-            printf("Internal error\n");
-            exit(2);
+        for (size_t n = 0; n < GlobalConfig.secretLength; n++) {
+            passBuf->string[n] = GlobalConfig.charset[auxBuf[n]];
         }
-        size_t height = (size_t)(currCharHeight - GlobalConfig.charset);
-        if (height == strlen(GlobalConfig.charset) - 1) {
-            secret[position] = GlobalConfig.charset[0];
-            incSecret(secret, position + 1);
-            return;
-        }
-        secret[position] = GlobalConfig.charset[height + 1];
+        passBuf->length = GlobalConfig.secretLength;
     }
 }
 
@@ -159,7 +184,8 @@ void appendDb(char *passphrase, char *address, uint64_t id) {
 
 int main(int argc, char ** argv) {
     uint8_t * ID;
-    char * secret;
+    struct PASSPHRASE * secretBuf;
+    short * secretAuxBuf;
     char printMask[RS_ADDRESS_STRING_SIZE];
     char rsAddress[RS_ADDRESS_STRING_SIZE];
     char currentPassphrase[121];
@@ -171,21 +197,25 @@ int main(int argc, char ** argv) {
     uint64_t end = 0;
     uint64_t rounds = 0;
     uint64_t previousRounds = 0;
-    uint64_t secretBufferSize;
     int maskIndex;
 
     size_t i;
 
     initRand();
     maskIndex = argumentsParser(argc, argv);
-    secretBufferSize = GlobalConfig.secretLength * GlobalConfig.gpuThreads;
     maskToByteMask(argv[maskIndex], GlobalConfig.mask, GlobalConfig.suffix);
-    secret = (char *) malloc(secretBufferSize * 2);
-    if (secret == NULL) {
+    secretBuf = (struct PASSPHRASE *) malloc(sizeof (struct PASSPHRASE) * GlobalConfig.gpuThreads * 2);
+    secretAuxBuf = (short *) malloc(sizeof (short) * GlobalConfig.gpuThreads * GlobalConfig.secretLength * 2);
+    if (secretBuf == NULL || secretAuxBuf == NULL) {
         printf("Cannot allocate memory for passphrases buffer\n");
         exit(1);
     }
-    randstring(secret, secretBufferSize * 2);
+    seedRand(secretAuxBuf, GlobalConfig.gpuThreads * GlobalConfig.secretLength * 2);
+#if MDEBUG == 1
+    for (size_t n = 0; n < GlobalConfig.gpuThreads * 2; n++) {
+        fillSecretBuffer(secretAuxBuf + n * GlobalConfig.secretLength, &secretBuf[n]);
+    }
+#endif
     if (GlobalConfig.useGpu) {
         ID = gpuInit();
     } else {
@@ -203,7 +233,10 @@ int main(int argc, char ** argv) {
     do {
         rounds++;
         for (i = 0; i < GlobalConfig.gpuThreads; i++) {
-            incSecret(secret + secretBufferSize * ((rounds + 1) % 2) + GlobalConfig.secretLength * i, 0);
+            short * currAuxBufItem = secretAuxBuf + (GlobalConfig.gpuThreads * GlobalConfig.secretLength) * ((rounds + 1) % 2) + GlobalConfig.secretLength * i;
+            size_t currSecret = GlobalConfig.gpuThreads * ((rounds + 1) % 2) + i;
+            incSecretAuxBuf(currAuxBufItem, 0);
+            fillSecretBuffer(currAuxBufItem, &secretBuf[currSecret]);
         }
 #endif
         if (GlobalConfig.useGpu) {
@@ -271,13 +304,21 @@ int main(int argc, char ** argv) {
 #if MDEBUG == 0
     } while (end == 0);
 #else
-    for (i = 0; i < GlobalConfig.gpuThreads * 2; i++) {
+    for (i = 0; i < GlobalConfig.gpuThreads; i++) {
         printf(
             "'%*.*s': %x\n",
-            (int)GlobalConfig.secretLength,
-            (int)GlobalConfig.secretLength,
-            secret + i * GlobalConfig.secretLength,
+            (int)secretBuf[i].length,
+            (int)secretBuf[i].length,
+            secretBuf[i].string,
             ID[i]
+        );
+    }
+    for (i = GlobalConfig.gpuThreads; i < GlobalConfig.gpuThreads * 2; i++) {
+        printf(
+            "'%*.*s': N/A\n",
+            (int)secretBuf[i].length,
+            (int)secretBuf[i].length,
+            secretBuf[i].string
         );
     }
 #endif

@@ -46,4 +46,7 @@ struct CONFIG {
     char charset[120];
 };
 
-
+struct PASSPHRASE {
+    int8_t length;
+    char string[119];
+};
