@@ -240,7 +240,7 @@ int main(int argc, char ** argv) {
         }
 #endif
         if (GlobalConfig.useGpu) {
-            gpuSolver(secret + secretBufferSize * ((rounds + 1) % 2), ID);
+            gpuSolver(&secretBuf[GlobalConfig.gpuThreads * ((rounds + 1) % 2)], ID);
         } else {
             cpuSolver(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], ID);
         }

@@ -15,4 +15,4 @@
 uint8_t * gpuInit(void);
 
 /** Solve a batch of passphrases and set result to result buffer */
-void gpuSolver(char *, uint8_t *);
+void gpuSolver(struct PASSPHRASE *, uint8_t *);
