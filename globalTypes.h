@@ -43,7 +43,8 @@ struct CONFIG {
         appendDb,
         endless;
     uint8_t mask[RS_ADDRESS_BYTE_SIZE];
-    char charset[120];
+    char charset[120],
+        salt[17];
 };
 
 struct PASSPHRASE {

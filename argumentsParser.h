@@ -22,6 +22,7 @@ Usage: vanity [OPTION [ARG]] ... MASK [OPTION [ARG]] ...\n\
   --endless          Never stop finding passphrases\n\
   --use-charset ABC  Generate passwords only containing the ABC chars\n\
   --use-bip39        Generate passwords with 12 words from BIP-39 list\n\
+  --add-salt ABC     Add your salt to the bip39 word list\n\
   --append-db        Append (or create) database.csv with found results\n\
 \n\
   MASK   Rules for the desired address. It must be at least one char long. No 0, O, I or 1 are allowed. Sometimes it is needed to embrace MASK with ' or \" chars. Following wildcars can be used:\n\
@@ -51,6 +52,7 @@ int argumentsParser(int argc, char **argv) {
     GlobalConfig.endless = 0;
     GlobalConfig.suffix = 0;
     GlobalConfig.charset[0] = 0;
+    GlobalConfig.salt[0] = 0;
     GlobalConfig.appendDb = 0;
     GlobalConfig.useBip39 = 0;
 
@@ -87,8 +89,8 @@ int argumentsParser(int argc, char **argv) {
             }
 
             GlobalConfig.secretLength = strtol(argv[i], NULL, 10);
-            if (GlobalConfig.secretLength < 40 || GlobalConfig.secretLength > 120){
-                endProgram("Invalid value for pass-length.");
+            if (GlobalConfig.secretLength > 120){
+                endProgram("Max passphrase length is 120.");
             }
             continue;
         }
@@ -148,6 +150,22 @@ int argumentsParser(int argc, char **argv) {
                 endProgram("Option --use-charset conflicts with --use-bip39.");
             }
             strcpy(GlobalConfig.charset, argv[i]);
+            continue;
+        }
+        if (strcmp(argv[i], "--add-salt") == 0) {
+            i++;
+            if (i >= argc) {
+                endProgram("Expecting value for salt.");
+            }
+            if (strlen(argv[i]) > 16) {
+                endProgram("Salt must be max 16 chars long.");
+            }
+            strcpy(GlobalConfig.salt, argv[i]);
+            for (size_t j = 0; j < strlen(GlobalConfig.salt); j++) {
+                if (GlobalConfig.salt[j] < 32 || GlobalConfig.salt[j] > 126) {
+                    endProgram("No special (unicode) chars are allowed in salt.\n");
+                }
+            }
             continue;
         }
         if (strcmp(argv[i], "--help") == 0) {

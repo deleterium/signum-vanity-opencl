@@ -72,20 +72,38 @@ void incSecretAuxBuf(short * auxBuf, size_t position) {
  */
 void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf) {
     if (GlobalConfig.useBip39) {
-        passBuf->length = (char) sprintf(passBuf->string, "%s %s %s %s %s %s %s %s %s %s %s %s",
-            bipWords[auxBuf[0]],
-            bipWords[auxBuf[1]],
-            bipWords[auxBuf[2]],
-            bipWords[auxBuf[3]],
-            bipWords[auxBuf[4]],
-            bipWords[auxBuf[5]],
-            bipWords[auxBuf[6]],
-            bipWords[auxBuf[7]],
-            bipWords[auxBuf[8]],
-            bipWords[auxBuf[9]],
-            bipWords[auxBuf[10]],
-            bipWords[auxBuf[11]]
-        );
+        if (GlobalConfig.salt[0] == 0) {
+            passBuf->length = (char) sprintf(passBuf->string, "%s %s %s %s %s %s %s %s %s %s %s %s",
+                bipWords[auxBuf[0]],
+                bipWords[auxBuf[1]],
+                bipWords[auxBuf[2]],
+                bipWords[auxBuf[3]],
+                bipWords[auxBuf[4]],
+                bipWords[auxBuf[5]],
+                bipWords[auxBuf[6]],
+                bipWords[auxBuf[7]],
+                bipWords[auxBuf[8]],
+                bipWords[auxBuf[9]],
+                bipWords[auxBuf[10]],
+                bipWords[auxBuf[11]]
+            );
+        } else {
+            passBuf->length = (char) sprintf(passBuf->string, "%s %s %s %s %s %s %s %s %s %s %s %s %s",
+                bipWords[auxBuf[0]],
+                bipWords[auxBuf[1]],
+                bipWords[auxBuf[2]],
+                bipWords[auxBuf[3]],
+                bipWords[auxBuf[4]],
+                bipWords[auxBuf[5]],
+                bipWords[auxBuf[6]],
+                bipWords[auxBuf[7]],
+                bipWords[auxBuf[8]],
+                bipWords[auxBuf[9]],
+                bipWords[auxBuf[10]],
+                bipWords[auxBuf[11]],
+                GlobalConfig.salt
+            );
+        }
     } else if (GlobalConfig.charset[0] == 0) {
         for (size_t n = 0; n < GlobalConfig.secretLength; n++) {
             passBuf->string[n] = '!' + auxBuf[n];
@@ -125,14 +143,13 @@ void initRand(void) {
     printf("Not good.. Got random seed from current second...\n");
 }
 
-double getPassphraseStrength(void) {
+void checkAndPrintPassphraseStrength(void) {
     size_t i;
     char * foundChar;
     double passStrength;
-    if (GlobalConfig.useBip39 == 1) {
-        return log2(pow(2048.0, 12.0));
-    }
-    if (GlobalConfig.charset[0] == 0) {
+    if (GlobalConfig.useBip39) {
+        passStrength = log2(pow(2048.0, 12.0)) + log2(pow(89.0, (double)strlen(GlobalConfig.salt)));
+    } else if (GlobalConfig.charset[0] == 0) {
         passStrength = log2(pow(89.0, (double)GlobalConfig.secretLength));
     } else {
         size_t charsetLength = strlen(GlobalConfig.charset);
@@ -151,11 +168,14 @@ double getPassphraseStrength(void) {
         }
         passStrength = log2(pow((double)strlen(GlobalConfig.charset), (double)GlobalConfig.secretLength));
     }
-    if (passStrength < 256.0) {
-        printf("Weak passphrase detected. It is %.f bits strong. It must be greater than 256 bits. Increase pass-length or increase charset length.\n", passStrength);
+    if (passStrength < 128.0) {
+        printf("Your passphrase is %.f bits strong. Refusing to continue with a passphrase weaker than 128-bit. Increase pass-length or increase charset length.\n\n", passStrength );
         exit(1);
+    } else if (passStrength < 256.0) {
+        printf("Your passphrase will be %.f bits strong, if attacker knows details about the charset, length and salt.\n", passStrength );
+    } else {
+        printf("Good! Your passphrase is stronger than the signum blockchain cryptography.\n");
     }
-    return passStrength;
 }
 
 double estimate90percent(double findingChance) {
@@ -224,7 +244,7 @@ int main(int argc, char ** argv) {
 
     byteMaskToPrintMask(GlobalConfig.mask, printMask);
     printf("Using MASK %s\n", printMask);
-    printf("Your passphrase will be %.f bits strong, if attacker knows the charset and length.\n", getPassphraseStrength());
+    checkAndPrintPassphraseStrength();
     eventChance = findingChance(GlobalConfig.mask);
     printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", estimate90percent(eventChance));
 
