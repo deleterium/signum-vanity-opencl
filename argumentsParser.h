@@ -7,12 +7,12 @@
 extern struct CONFIG GlobalConfig;
 
 char helpString[] = "\
-Password generator for vanity addresses on Signum cryptocurrency.\n\
+Passphrase generator for vanity addresses on Signum cryptocurrency.\n\
 \n\
 Usage: vanity [OPTION [ARG]] ... MASK [OPTION [ARG]] ...\n\
   --help             Show this help statement\n\
   --suffix           Match given mask from the end of address. Default is to match from the beginning\n\
-  --pass-length N    Passphrase length. 40 to 120 chars. Default: 64\n\
+  --pass-length N    Passphrase length. Max 134 chars. Default: 64\n\
   --cpu              Set to use CPU and disable using GPU\n\
   --gpu              Set to use GPU. Already is default\n\
   --gpu-platform N   Select GPU from platorm N. Default: 0\n\
@@ -20,8 +20,8 @@ Usage: vanity [OPTION [ARG]] ... MASK [OPTION [ARG]] ...\n\
   --gpu-threads N    Send a batch of N threads. Default: 16384\n\
   --gpu-work-size N  Select N concurrent works. Default: 64\n\
   --endless          Never stop finding passphrases\n\
-  --use-charset ABC  Generate passwords only containing the ABC chars\n\
-  --use-bip39        Generate passwords with 12 words from BIP-39 list\n\
+  --use-charset ABC  Generate passphrase only containing the ABC chars\n\
+  --use-bip39        Generate passphrase with 12 words from BIP-39 list\n\
   --add-salt ABC     Add your salt to the bip39 word list\n\
   --append-db        Append (or create) database.csv with found results\n\
 \n\
@@ -52,6 +52,7 @@ int argumentsParser(int argc, char **argv) {
     GlobalConfig.endless = 0;
     GlobalConfig.suffix = 0;
     GlobalConfig.charset[0] = 0;
+    GlobalConfig.charsetLength = 89;
     GlobalConfig.salt[0] = 0;
     GlobalConfig.appendDb = 0;
     GlobalConfig.useBip39 = 0;
@@ -78,7 +79,6 @@ int argumentsParser(int argc, char **argv) {
                 endProgram("Usage: vanity [OPTION [ARG]] ... MASK\nTry '--help'.");
             }
         }
-
         if (strcmp(argv[i], "--pass-length") == 0) {
             i++;
             if (i >= argc) {
@@ -87,10 +87,9 @@ int argumentsParser(int argc, char **argv) {
             if (GlobalConfig.useBip39) {
                 endProgram("Option --pass-length conflicts with --use-bip39.");
             }
-
             GlobalConfig.secretLength = strtol(argv[i], NULL, 10);
-            if (GlobalConfig.secretLength > 120){
-                endProgram("Max passphrase length is 120.");
+            if (GlobalConfig.secretLength >= PASSPHRASE_MAX_LENGTH){
+                endProgram("Passphrase length exceeded maximum value.\nTry '--help'.");
             }
             continue;
         }
@@ -150,6 +149,7 @@ int argumentsParser(int argc, char **argv) {
                 endProgram("Option --use-charset conflicts with --use-bip39.");
             }
             strcpy(GlobalConfig.charset, argv[i]);
+            GlobalConfig.charsetLength = strlen(GlobalConfig.charset);
             continue;
         }
         if (strcmp(argv[i], "--add-salt") == 0) {
@@ -157,8 +157,8 @@ int argumentsParser(int argc, char **argv) {
             if (i >= argc) {
                 endProgram("Expecting value for salt.");
             }
-            if (strlen(argv[i]) > 16) {
-                endProgram("Salt must be max 16 chars long.");
+            if (strlen(argv[i]) >= PASSPHRASE_MAX_LENGTH - BIP_MAX_LENGTH) {
+                endProgram("Salt is too long.");
             }
             strcpy(GlobalConfig.salt, argv[i]);
             for (size_t j = 0; j < strlen(GlobalConfig.salt); j++) {
@@ -184,6 +184,7 @@ int argumentsParser(int argc, char **argv) {
         if (strcmp(argv[i], "--use-bip39") == 0) {
             GlobalConfig.useBip39 = 1;
             GlobalConfig.secretLength = 12;
+            GlobalConfig.charsetLength = 2048;
             continue;
         }
         if (strcmp(argv[i], "--endless") == 0) {

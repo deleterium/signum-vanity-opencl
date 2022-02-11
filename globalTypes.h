@@ -30,13 +30,17 @@
 
 #include "ReedSolomon.h"
 
+#define PASSPHRASE_MAX_LENGTH 135
+#define BIP_MAX_LENGTH (8 * 12 + 11)
+
 struct CONFIG {
     uint64_t
         gpuThreads,
         gpuWorkSize,
         gpuPlatform,
         gpuDevice,
-        secretLength;
+        secretLength,
+        charsetLength;
     int32_t useGpu,
         useBip39,
         suffix,
@@ -44,10 +48,10 @@ struct CONFIG {
         endless;
     uint8_t mask[RS_ADDRESS_BYTE_SIZE];
     char charset[120],
-        salt[17];
+        salt[PASSPHRASE_MAX_LENGTH - BIP_MAX_LENGTH];
 };
 
 struct PASSPHRASE {
-    int8_t length;
-    char string[119];
+    uint8_t length;
+    char string[PASSPHRASE_MAX_LENGTH];
 };

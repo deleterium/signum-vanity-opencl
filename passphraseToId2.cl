@@ -2348,9 +2348,11 @@ void idToByteAccount(ulong accountId, uchar * out) {
     }
 }
 
+#define PASSPHRASE_MAX_LENGTH 135
+
 struct PASSPHRASE {
     uchar length;
-    char string[119];
+    char string[PASSPHRASE_MAX_LENGTH];
 };
 
 __kernel void process (

@@ -34,33 +34,22 @@ int clock_gettime(int noNeed, struct timespec* spec) {
  * Populate buffer with random number
  */
 void seedRand(short * buffer, uint64_t length) {
-    int32_t charsetLen;
-    int32_t passLen = GlobalConfig.secretLength;
-    if (GlobalConfig.useBip39) {
-        charsetLen = 2048;
-    } else if (GlobalConfig.charset[0] == 0) {
-        charsetLen = 89;
-    } else {
-        charsetLen = (int32_t)strlen(GlobalConfig.charset);
-    }
     for (size_t n = 0; n < length; n++) {
-        buffer[n] = (short)(rand() % charsetLen);
+        buffer[n] = (short)(rand() % GlobalConfig.charsetLength);
     }
 }
 
 /**
  * Increments one value at aux buffer */
 void incSecretAuxBuf(short * auxBuf, size_t position) {
-    size_t charsetLen = GlobalConfig.secretLength;
-    if (GlobalConfig.useBip39) {
-        charsetLen = 2048;
-    }
-    if (auxBuf[position] >= (short) charsetLen - 1) {
-        auxBuf[position] = 0;
-        if (position == charsetLen - 1) {
-            auxBuf[position] = -1;
-            position = -1;
+    if (auxBuf[position] == (short) GlobalConfig.charsetLength - 1) {
+        if (position == GlobalConfig.secretLength - 1) {
+            for (size_t i = 0; i < GlobalConfig.secretLength; i++) {
+                auxBuf[position] = 0;
+            }
+            return;
         }
+        auxBuf[position] = 0;
         incSecretAuxBuf(auxBuf, position + 1);
         return;
     }
@@ -73,7 +62,7 @@ void incSecretAuxBuf(short * auxBuf, size_t position) {
 void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf) {
     if (GlobalConfig.useBip39) {
         if (GlobalConfig.salt[0] == 0) {
-            passBuf->length = (char) sprintf(passBuf->string, "%s %s %s %s %s %s %s %s %s %s %s %s",
+            passBuf->length = (uint8_t)sprintf(passBuf->string, "%s %s %s %s %s %s %s %s %s %s %s %s",
                 bipWords[auxBuf[0]],
                 bipWords[auxBuf[1]],
                 bipWords[auxBuf[2]],
@@ -88,7 +77,7 @@ void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf) {
                 bipWords[auxBuf[11]]
             );
         } else {
-            passBuf->length = (char) sprintf(passBuf->string, "%s %s %s %s %s %s %s %s %s %s %s %s %s",
+            passBuf->length = (uint8_t)sprintf(passBuf->string, "%s %s %s %s %s %s %s %s %s %s %s %s %s",
                 bipWords[auxBuf[0]],
                 bipWords[auxBuf[1]],
                 bipWords[auxBuf[2]],
@@ -108,12 +97,12 @@ void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf) {
         for (size_t n = 0; n < GlobalConfig.secretLength; n++) {
             passBuf->string[n] = '!' + auxBuf[n];
         }
-        passBuf->length = GlobalConfig.secretLength;
+        passBuf->length = (uint8_t)GlobalConfig.secretLength;
     } else {
         for (size_t n = 0; n < GlobalConfig.secretLength; n++) {
             passBuf->string[n] = GlobalConfig.charset[auxBuf[n]];
         }
-        passBuf->length = GlobalConfig.secretLength;
+        passBuf->length = (uint8_t)GlobalConfig.secretLength;
     }
 }
 
@@ -169,12 +158,12 @@ void checkAndPrintPassphraseStrength(void) {
         passStrength = log2(pow((double)strlen(GlobalConfig.charset), (double)GlobalConfig.secretLength));
     }
     if (passStrength < 128.0) {
-        printf("Your passphrase is %.f bits strong. Refusing to continue with a passphrase weaker than 128-bit. Increase pass-length or increase charset length.\n\n", passStrength );
+        printf("Your passphrase would be %.f bits strong. Refusing to continue with a passphrase weaker than 128-bit. Increase pass-length or increase charset length.\n\n", passStrength);
         exit(1);
     } else if (passStrength < 256.0) {
-        printf("Your passphrase will be %.f bits strong, if attacker knows details about the charset, length and salt.\n", passStrength );
+        printf("Your passphrase will be %.f bits strong, if attacker knows details about the charset, length and salt.\n", passStrength);
     } else {
-        printf("Good! Your passphrase is stronger than the signum blockchain cryptography.\n");
+        printf("Good! Your passphrase will be stronger than the signum blockchain cryptography.\n");
     }
 }
 
@@ -208,7 +197,7 @@ int main(int argc, char ** argv) {
     short * secretAuxBuf;
     char printMask[RS_ADDRESS_STRING_SIZE];
     char rsAddress[RS_ADDRESS_STRING_SIZE];
-    char currentPassphrase[121];
+    char currentPassphrase[PASSPHRASE_MAX_LENGTH];
     struct timespec tstart, tend;
     int64_t seconds, nanos;
     double eventChance;
