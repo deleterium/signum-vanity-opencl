@@ -2339,7 +2339,7 @@ void idToByteAccount(ulong accountId, uchar * out) {
     }
 }
 
-#define PASSPHRASE_MAX_LENGTH 135
+#define PASSPHRASE_MAX_LENGTH 143
 
 struct PASSPHRASE {
     uchar offset;

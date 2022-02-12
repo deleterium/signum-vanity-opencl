@@ -1,4 +1,4 @@
-const char bipWords[2048][9] = {
+const char bipWordsEN[2048][16] = {
     "abandon",
     "ability",
     "able",
@@ -2049,7 +2049,7 @@ const char bipWords[2048][9] = {
     "zoo"
 };
 
-const char bipOffset[2048] = {
+const char bipOffsetEN[2048] = {
     0,
     0,
     3,

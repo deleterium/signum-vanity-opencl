@@ -30,8 +30,8 @@
 
 #include "ReedSolomon.h"
 
-#define PASSPHRASE_MAX_LENGTH 135
-#define BIP_MAX_LENGTH (8 * 12 + 11)
+#define PASSPHRASE_MAX_LENGTH 143
+#define BIP_MAX_LENGTH (9 * 12 + 11)
 
 struct CONFIG {
     uint64_t
@@ -47,6 +47,8 @@ struct CONFIG {
         appendDb,
         endless;
     uint8_t mask[RS_ADDRESS_BYTE_SIZE];
+    const char (*bipWords)[2048][16],
+        (*bipOffset)[2048];
     char charset[120],
         salt[PASSPHRASE_MAX_LENGTH - BIP_MAX_LENGTH];
 };

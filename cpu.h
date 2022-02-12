@@ -1,3 +1,4 @@
+#include "globalTypes.h"
 
 /** Allocate memory for result buffer and prints a message */
 uint8_t * cpuInit(void);

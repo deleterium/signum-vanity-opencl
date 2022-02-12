@@ -14,8 +14,6 @@
 #include "ReedSolomon.h"
 
 struct CONFIG GlobalConfig;
-extern char bipWords[2048][9];
-extern char bipOffset[2048];
 
 void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf);
 
@@ -83,9 +81,9 @@ int incSecretAuxBufBip39(short * auxBuf, size_t position, struct PASSPHRASE * pa
     if (position == 0) {
         char currChar;
         size_t bip_pc = 0;
-        passBuf->offset += bipOffset[auxBuf[position]];
+        passBuf->offset += (*GlobalConfig.bipOffset)[auxBuf[position]];
         do {
-            currChar = bipWords[auxBuf[position]][bip_pc];
+            currChar = (*GlobalConfig.bipWords)[auxBuf[position]][bip_pc];
             passBuf->string[passBuf->offset + bip_pc] = currChar;
             bip_pc++;
         } while (currChar != 0);
@@ -105,7 +103,7 @@ void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf) {
         for (size_t word=0; word<12; word++) {
             size_t bip_pc = 0;
             do {
-                currChar = bipWords[auxBuf[word]][bip_pc];
+                currChar = (*GlobalConfig.bipWords)[auxBuf[word]][bip_pc];
                 temp[pc] = currChar;
                 pc++;
                 bip_pc++;
