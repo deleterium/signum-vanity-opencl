@@ -125,6 +125,7 @@
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="bip39Words.c" />
     <ClCompile Include="cpu.c" />
     <ClCompile Include="ed25519-donna\ed25519.c" />
     <ClCompile Include="gpu.c" />

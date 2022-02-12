@@ -30,6 +30,9 @@
     <ClCompile Include="ed25519-donna\ed25519.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="bip39Words.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="argumentsParser.h">
