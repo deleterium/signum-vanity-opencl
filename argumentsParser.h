@@ -51,8 +51,8 @@ int argumentsParser(int argc, char **argv) {
     GlobalConfig.gpuDevice = 0;
     GlobalConfig.endless = 0;
     GlobalConfig.suffix = 0;
-    GlobalConfig.charset[0] = 0;
-    GlobalConfig.charsetLength = 89;
+    strcpy(GlobalConfig.charset, "!#$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_abcdefghijklmnopqrstuvwxyz");
+    GlobalConfig.charsetLength = strlen(GlobalConfig.charset);
     GlobalConfig.salt[0] = 0;
     GlobalConfig.appendDb = 0;
     GlobalConfig.useBip39 = 0;

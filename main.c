@@ -40,20 +40,57 @@ void seedRand(short * buffer, uint64_t length) {
 }
 
 /**
- * Increments one value at aux buffer */
-void incSecretAuxBuf(short * auxBuf, size_t position) {
+ * Increments one value at aux buffer and refresh passphrase (only changes) */
+void incSecretAuxBuf(short * auxBuf, size_t position, struct PASSPHRASE * passBuf) {
     if (auxBuf[position] == (short) GlobalConfig.charsetLength - 1) {
         if (position == GlobalConfig.secretLength - 1) {
             for (size_t i = 0; i < GlobalConfig.secretLength; i++) {
-                auxBuf[position] = 0;
+                auxBuf[i] = 0;
+                if (GlobalConfig.useBip39 == 0){
+                    passBuf->string[i] = GlobalConfig.charset[0];
+                }
             }
             return;
         }
         auxBuf[position] = 0;
-        incSecretAuxBuf(auxBuf, position + 1);
+        if (GlobalConfig.useBip39 == 0){
+            passBuf->string[position] = GlobalConfig.charset[0];
+        }
+        incSecretAuxBuf(auxBuf, position + 1, passBuf);
         return;
     }
     auxBuf[position]++;
+    if (GlobalConfig.useBip39 == 0){
+        passBuf->string[position] = GlobalConfig.charset[auxBuf[position]];
+    } else {
+        if (position == 0) {
+            size_t pc = 0;
+            for (size_t word=0; word<12; word++) {
+                size_t bip_pc = 0;
+                while (bipWords[auxBuf[word]][bip_pc] != 0) {
+                    passBuf->string[pc] = bipWords[auxBuf[word]][bip_pc];
+                    pc++;
+                    bip_pc++;
+                }
+                passBuf->string[pc] = ' ';
+                pc++;
+            }
+            if (GlobalConfig.salt[0] == 0) {
+                pc--;
+                passBuf->string[pc] = 0;
+                passBuf->length = (uint8_t)pc;
+            } else {
+                pc++;
+                size_t salt_pc = 0;
+                while (GlobalConfig.salt[salt_pc] != 0) {
+                    passBuf->string[pc] = GlobalConfig.salt[salt_pc];
+                    pc++;
+                    salt_pc++;
+                }
+                passBuf->string[pc] = 0;
+            }
+        }
+    }
 }
 
 /**
@@ -93,11 +130,6 @@ void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf) {
                 GlobalConfig.salt
             );
         }
-    } else if (GlobalConfig.charset[0] == 0) {
-        for (size_t n = 0; n < GlobalConfig.secretLength; n++) {
-            passBuf->string[n] = '!' + auxBuf[n];
-        }
-        passBuf->length = (uint8_t)GlobalConfig.secretLength;
     } else {
         for (size_t n = 0; n < GlobalConfig.secretLength; n++) {
             passBuf->string[n] = GlobalConfig.charset[auxBuf[n]];
@@ -138,8 +170,6 @@ void checkAndPrintPassphraseStrength(void) {
     double passStrength;
     if (GlobalConfig.useBip39) {
         passStrength = log2(pow(2048.0, 12.0)) + log2(pow(89.0, (double)strlen(GlobalConfig.salt)));
-    } else if (GlobalConfig.charset[0] == 0) {
-        passStrength = log2(pow(89.0, (double)GlobalConfig.secretLength));
     } else {
         size_t charsetLength = strlen(GlobalConfig.charset);
         for (i=0; i< charsetLength; i++) {
@@ -220,11 +250,9 @@ int main(int argc, char ** argv) {
         exit(1);
     }
     seedRand(secretAuxBuf, GlobalConfig.gpuThreads * GlobalConfig.secretLength * 2);
-#if MDEBUG == 1
     for (size_t n = 0; n < GlobalConfig.gpuThreads * 2; n++) {
         fillSecretBuffer(secretAuxBuf + n * GlobalConfig.secretLength, &secretBuf[n]);
     }
-#endif
     if (GlobalConfig.useGpu) {
         ID = gpuInit();
     } else {
@@ -244,8 +272,7 @@ int main(int argc, char ** argv) {
         for (i = 0; i < GlobalConfig.gpuThreads; i++) {
             short * currAuxBufItem = secretAuxBuf + (GlobalConfig.gpuThreads * GlobalConfig.secretLength) * ((rounds + 1) % 2) + GlobalConfig.secretLength * i;
             size_t currSecret = GlobalConfig.gpuThreads * ((rounds + 1) % 2) + i;
-            incSecretAuxBuf(currAuxBufItem, 0);
-            fillSecretBuffer(currAuxBufItem, &secretBuf[currSecret]);
+            incSecretAuxBuf(currAuxBufItem, 0, &secretBuf[currSecret]);
         }
 #endif
         if (GlobalConfig.useGpu) {
