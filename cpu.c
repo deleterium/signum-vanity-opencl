@@ -60,7 +60,7 @@ void cpuSolver(const struct PASSPHRASE * passphraseBatch, uint8_t * foundBatch) 
 
     for (size_t i = 0; i < GlobalConfig.gpuThreads; i++) {
         SHA256_Init(&ctx);
-        SHA256_Update(&ctx, passphraseBatch[i].string, passphraseBatch[i].length);
+        SHA256_Update(&ctx, passphraseBatch[i].string + passphraseBatch[i].offset, PASSPHRASE_MAX_LENGTH - passphraseBatch[i].offset);
         SHA256_Final(privateKey, &ctx);
         curved25519_scalarmult_basepoint(publicKey, privateKey);
         SHA256_Init(&ctx);
@@ -80,7 +80,7 @@ uint64_t solveOnlyOne(const struct PASSPHRASE * passphrase, char * rsAddress){
     uint64_t id;
 
     SHA256_Init(&ctx);
-    SHA256_Update(&ctx, passphrase->string, passphrase->length);
+    SHA256_Update(&ctx, passphrase->string + passphrase->offset, PASSPHRASE_MAX_LENGTH - passphrase->offset);
     SHA256_Final(privateKey, &ctx);
     curved25519_scalarmult_basepoint(publicKey, privateKey);
     SHA256_Init(&ctx);

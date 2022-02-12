@@ -15,6 +15,9 @@
 
 struct CONFIG GlobalConfig;
 extern char bipWords[2048][9];
+extern char bipOffset[2048];
+
+void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf);
 
 #ifdef OS_WINDOWS
 #include <Windows.h>
@@ -41,56 +44,54 @@ void seedRand(short * buffer, uint64_t length) {
 
 /**
  * Increments one value at aux buffer and refresh passphrase (only changes) */
-void incSecretAuxBuf(short * auxBuf, size_t position, struct PASSPHRASE * passBuf) {
+void incSecretAuxBufRegular(short * auxBuf, size_t position, struct PASSPHRASE * passBuf) {
     if (auxBuf[position] == (short) GlobalConfig.charsetLength - 1) {
         if (position == GlobalConfig.secretLength - 1) {
             for (size_t i = 0; i < GlobalConfig.secretLength; i++) {
                 auxBuf[i] = 0;
-                if (GlobalConfig.useBip39 == 0){
-                    passBuf->string[i] = GlobalConfig.charset[0];
-                }
+                passBuf->string[passBuf->offset + i] = GlobalConfig.charset[0];
             }
             return;
         }
         auxBuf[position] = 0;
-        if (GlobalConfig.useBip39 == 0){
-            passBuf->string[position] = GlobalConfig.charset[0];
-        }
-        incSecretAuxBuf(auxBuf, position + 1, passBuf);
+        passBuf->string[passBuf->offset + position] = GlobalConfig.charset[0];
+        incSecretAuxBufRegular(auxBuf, position + 1, passBuf);
         return;
     }
     auxBuf[position]++;
-    if (GlobalConfig.useBip39 == 0){
-        passBuf->string[position] = GlobalConfig.charset[auxBuf[position]];
-    } else {
-        if (position == 0) {
-            size_t pc = 0;
-            for (size_t word=0; word<12; word++) {
-                size_t bip_pc = 0;
-                while (bipWords[auxBuf[word]][bip_pc] != 0) {
-                    passBuf->string[pc] = bipWords[auxBuf[word]][bip_pc];
-                    pc++;
-                    bip_pc++;
-                }
-                passBuf->string[pc] = ' ';
-                pc++;
+    passBuf->string[passBuf->offset + position] = GlobalConfig.charset[auxBuf[position]];
+    return;
+}
+
+/**
+ * Increments one value at aux buffer and refresh passphrase (only changes) */
+int incSecretAuxBufBip39(short * auxBuf, size_t position, struct PASSPHRASE * passBuf) {
+    if (auxBuf[position] == (short) GlobalConfig.charsetLength - 1) {
+        if (position == GlobalConfig.secretLength - 1) {
+            for (size_t i = 0; i < GlobalConfig.secretLength; i++) {
+                auxBuf[i] = 0;
             }
-            if (GlobalConfig.salt[0] == 0) {
-                pc--;
-                passBuf->string[pc] = 0;
-                passBuf->length = (uint8_t)pc;
-            } else {
-                pc++;
-                size_t salt_pc = 0;
-                while (GlobalConfig.salt[salt_pc] != 0) {
-                    passBuf->string[pc] = GlobalConfig.salt[salt_pc];
-                    pc++;
-                    salt_pc++;
-                }
-                passBuf->string[pc] = 0;
-            }
+            return 0;
         }
+        auxBuf[position] = 0;
+        if (incSecretAuxBufBip39(auxBuf, position + 1, passBuf) == 0) {
+            fillSecretBuffer(auxBuf, passBuf);
+        }
+        return 1;
     }
+    auxBuf[position]++;
+    if (position == 0) {
+        char currChar;
+        size_t bip_pc = 0;
+        passBuf->offset += bipOffset[auxBuf[position]];
+        do {
+            currChar = bipWords[auxBuf[position]][bip_pc];
+            passBuf->string[passBuf->offset + bip_pc] = currChar;
+            bip_pc++;
+        } while (currChar != 0);
+        passBuf->string[passBuf->offset + bip_pc - 1] = ' ';
+    }
+    return 0;
 }
 
 /**
@@ -98,43 +99,38 @@ void incSecretAuxBuf(short * auxBuf, size_t position, struct PASSPHRASE * passBu
  */
 void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf) {
     if (GlobalConfig.useBip39) {
+        char temp[PASSPHRASE_MAX_LENGTH];
+        size_t pc = 0;
+        char currChar;
+        for (size_t word=0; word<12; word++) {
+            size_t bip_pc = 0;
+            do {
+                currChar = bipWords[auxBuf[word]][bip_pc];
+                temp[pc] = currChar;
+                pc++;
+                bip_pc++;
+            } while (currChar != 0);
+            temp[pc - 1] = ' ';
+        }
         if (GlobalConfig.salt[0] == 0) {
-            passBuf->length = (uint8_t)sprintf(passBuf->string, "%s %s %s %s %s %s %s %s %s %s %s %s",
-                bipWords[auxBuf[0]],
-                bipWords[auxBuf[1]],
-                bipWords[auxBuf[2]],
-                bipWords[auxBuf[3]],
-                bipWords[auxBuf[4]],
-                bipWords[auxBuf[5]],
-                bipWords[auxBuf[6]],
-                bipWords[auxBuf[7]],
-                bipWords[auxBuf[8]],
-                bipWords[auxBuf[9]],
-                bipWords[auxBuf[10]],
-                bipWords[auxBuf[11]]
-            );
+            temp[pc - 1] = 0;
         } else {
-            passBuf->length = (uint8_t)sprintf(passBuf->string, "%s %s %s %s %s %s %s %s %s %s %s %s %s",
-                bipWords[auxBuf[0]],
-                bipWords[auxBuf[1]],
-                bipWords[auxBuf[2]],
-                bipWords[auxBuf[3]],
-                bipWords[auxBuf[4]],
-                bipWords[auxBuf[5]],
-                bipWords[auxBuf[6]],
-                bipWords[auxBuf[7]],
-                bipWords[auxBuf[8]],
-                bipWords[auxBuf[9]],
-                bipWords[auxBuf[10]],
-                bipWords[auxBuf[11]],
-                GlobalConfig.salt
-            );
+            size_t salt_pc = 0;
+            do {
+                currChar = GlobalConfig.salt[salt_pc];
+                temp[pc] = currChar;
+                pc++;
+                salt_pc++;
+            } while (currChar != 0);
         }
+        pc--;
+        passBuf->offset = PASSPHRASE_MAX_LENGTH - pc;
+        memcpy(passBuf->string + passBuf->offset, temp, pc);
     } else {
+        passBuf->offset = PASSPHRASE_MAX_LENGTH - GlobalConfig.secretLength;
         for (size_t n = 0; n < GlobalConfig.secretLength; n++) {
-            passBuf->string[n] = GlobalConfig.charset[auxBuf[n]];
+            passBuf->string[passBuf->offset + n] = GlobalConfig.charset[auxBuf[n]];
         }
-        passBuf->length = (uint8_t)GlobalConfig.secretLength;
     }
 }
 
@@ -269,10 +265,20 @@ int main(int argc, char ** argv) {
 #if MDEBUG == 0
     do {
         rounds++;
-        for (i = 0; i < GlobalConfig.gpuThreads; i++) {
-            short * currAuxBufItem = secretAuxBuf + (GlobalConfig.gpuThreads * GlobalConfig.secretLength) * ((rounds + 1) % 2) + GlobalConfig.secretLength * i;
-            size_t currSecret = GlobalConfig.gpuThreads * ((rounds + 1) % 2) + i;
-            incSecretAuxBuf(currAuxBufItem, 0, &secretBuf[currSecret]);
+        short * currAuxBufItem = secretAuxBuf + (GlobalConfig.gpuThreads * GlobalConfig.secretLength) * ((rounds + 1) % 2);
+        struct PASSPHRASE * currPassphrase = &secretBuf[GlobalConfig.gpuThreads * ((rounds + 1) % 2)];
+        if (GlobalConfig.useBip39) {
+            for (i = 0; i < GlobalConfig.gpuThreads; i++) {
+                incSecretAuxBufBip39(currAuxBufItem, 0, currPassphrase);
+                currAuxBufItem += GlobalConfig.secretLength;
+                currPassphrase++;
+            }
+        } else {
+            for (i = 0; i < GlobalConfig.gpuThreads; i++) {
+                incSecretAuxBufRegular(currAuxBufItem, 0, currPassphrase);
+                currAuxBufItem += GlobalConfig.secretLength;
+                currPassphrase++;
+            }
         }
 #endif
         if (GlobalConfig.useGpu) {
@@ -308,8 +314,12 @@ int main(int argc, char ** argv) {
         }
         for (i = 0; i < GlobalConfig.gpuThreads; i++) {
             if (ID[i] == 1) {
-                memcpy(currentPassphrase, secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].string, secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].length);
-                currentPassphrase[secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].length]='\0';
+                memcpy(
+                    currentPassphrase,
+                    secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].string + secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset,
+                    PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset
+                );
+                currentPassphrase[PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset]='\0';
                 uint64_t newId = solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i], rsAddress);
                 if (GlobalConfig.appendDb == 1) {
                     appendDb(currentPassphrase, rsAddress, newId);
@@ -343,18 +353,18 @@ int main(int argc, char ** argv) {
     for (i = 0; i < GlobalConfig.gpuThreads; i++) {
         printf(
             "'%*.*s': %x\n",
-            (int)secretBuf[i].length,
-            (int)secretBuf[i].length,
-            secretBuf[i].string,
+            PASSPHRASE_MAX_LENGTH - (int)secretBuf[i].offset,
+            PASSPHRASE_MAX_LENGTH - (int)secretBuf[i].offset,
+            secretBuf[i].string + secretBuf[i].offset,
             ID[i]
         );
     }
     for (i = GlobalConfig.gpuThreads; i < GlobalConfig.gpuThreads * 2; i++) {
         printf(
             "'%*.*s': N/A\n",
-            (int)secretBuf[i].length,
-            (int)secretBuf[i].length,
-            secretBuf[i].string
+            PASSPHRASE_MAX_LENGTH - (int)secretBuf[i].offset,
+            PASSPHRASE_MAX_LENGTH - (int)secretBuf[i].offset,
+            secretBuf[i].string + secretBuf[i].offset
         );
     }
 #endif

@@ -52,6 +52,6 @@ struct CONFIG {
 };
 
 struct PASSPHRASE {
-    uint8_t length;
+    uint8_t offset;
     char string[PASSPHRASE_MAX_LENGTH];
 };

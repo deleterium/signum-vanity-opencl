@@ -2342,7 +2342,7 @@ void idToByteAccount(ulong accountId, uchar * out) {
 #define PASSPHRASE_MAX_LENGTH 135
 
 struct PASSPHRASE {
-    uchar length;
+    uchar offset;
     char string[PASSPHRASE_MAX_LENGTH];
 };
 
@@ -2357,18 +2357,18 @@ __kernel void process (
     uint passwordHash[8];
     uint fullID[8];
     uint uintPass[30];
-    int passphraseLength = passphrase[thread].length;
+    int passphraseLength = PASSPHRASE_MAX_LENGTH - passphrase[thread].offset;
 
-    if (passphraseLength > sizeof(((struct PASSPHRASE *)0)->string)) {
+    if (passphraseLength > PASSPHRASE_MAX_LENGTH) {
         digest2[thread] = 0;
         return;
     }
 
     for (size_t i = 0; i < passphraseLength; i++) {
         if (i % 4 == 0) {
-            uintPass[i / 4] = (uint)  passphrase[thread].string[i];
+            uintPass[i / 4] = (uint)  passphrase[thread].string[passphrase[thread].offset + i];
         } else {
-            uintPass[i / 4] |= (uint) passphrase[thread].string[i] << (8 * (i % 4));
+            uintPass[i / 4] |= (uint) passphrase[thread].string[passphrase[thread].offset + i] << (8 * (i % 4));
         }
     }
     sha256_crypt(uintPass, passphraseLength, passwordHash);
