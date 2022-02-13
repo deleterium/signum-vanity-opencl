@@ -17,41 +17,41 @@ extern const char bipOffsetEN[2048];
 extern const char bipOffsetPT[2048];
 extern const char bipOffsetES[2048];
 
-const char helpString[] = R"(Passphrase generator for vanity addresses on Signum cryptocurrency.
-
-Usage: vanity [OPTION]... MASK
-Example: vanity --cpu --pass-length 32 SGN@
-
-Options:
-  --help             Show this help statement
-  --suffix           Match given mask from the end of address. Default is to match from the beginning
-  --pass-length N    Passphrase length. Max 142 chars. Default: 64
-  --cpu              Set to use CPU and disable using GPU
-  --gpu              Set to use GPU. Already is default
-  --gpu-platform N   Select GPU from platorm N. Default: 0
-  --gpu-device N     Select GPU device N. Default: 0
-  --gpu-threads N    Send a batch of N threads. Default: 16384
-  --gpu-work-size N  Select N concurrent works. Default: 64
-  --endless          Never stop finding passphrases
-  --use-charset ABC  Generate passphrase only containing the ABC chars
-  --use-bip39        Generate passphrase with 12 words from BIP-39 list
-  --dict [EN|PT|ES]  Dictionary language for bip-39. Default is english
-  --add-salt ABC     Add your salt to the bip39 word list
-  --append-db        Append (or create) database.csv with found results
-
-Mask:
-  Specify the rules for the desired address.
-  It must be at least one char long.
-  No 0, O, I or 1 are allowed.
-  Following wildcars can be used:
-    ?: Matches any char
-    @: Matches only letters [A-Z]
-    #: Matches only numbers [2-9]
-    c: Matches consonants [BCDFGHJKLMNPQRSTVWXZ]
-    v: Matches vowels [AEUY]
-    p: Matches previous char
-    -: Use to organize the mask, does not affect result
-)";
+const char helpString[] = "Passphrase generator for vanity addresses on Signum cryptocurrency.\n\
+\n\
+Usage: vanity [OPTION]... MASK\n\
+Example: vanity --cpu --pass-length 32 SGN@\n\
+\n\
+Options:\n\
+  --help             Show this help statement\n\
+  --suffix           Match given mask from the end of address. Default is to match from the beginning\n\
+  --pass-length N    Passphrase length. Max 142 chars. Default: 64\n\
+  --cpu              Set to use CPU and disable using GPU\n\
+  --gpu              Set to use GPU. Already is default\n\
+  --gpu-platform N   Select GPU from platorm N. Default: 0\n\
+  --gpu-device N     Select GPU device N. Default: 0\n\
+  --gpu-threads N    Send a batch of N threads. Default: 16384\n\
+  --gpu-work-size N  Select N concurrent works. Default: 64\n\
+  --endless          Never stop finding passphrases\n\
+  --use-charset ABC  Generate passphrase only containing the ABC chars\n\
+  --use-bip39        Generate passphrase with 12 words from BIP-39 list\n\
+  --dict [EN|PT|ES]  Dictionary language for bip-39. Default is english\n\
+  --add-salt ABC     Add your salt to the bip39 word list\n\
+  --append-db        Append (or create) database.csv with found results\n\
+\n\
+Mask:\n\
+  Specify the rules for the desired address.\n\
+  It must be at least one char long.\n\
+  No 0, O, I or 1 are allowed.\n\
+  Following wildcars can be used:\n\
+    ?: Matches any char\n\
+    @: Matches only letters [A-Z]\n\
+    #: Matches only numbers [2-9]\n\
+    c: Matches consonants [BCDFGHJKLMNPQRSTVWXZ]\n\
+    v: Matches vowels [AEUY]\n\
+    p: Matches previous char\n\
+    -: Use to organize the mask, does not affect result\n\
+\n";
 
 void endProgram(const char * errorString) {
     printf("%s\n", errorString);
