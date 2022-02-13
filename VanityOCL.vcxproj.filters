@@ -30,9 +30,21 @@
     <ClCompile Include="ed25519-donna\ed25519.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="argumentsParser.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="argumentsParser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bip39WordsEN.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bip39WordsES.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bip39WordsPT.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="cpu.h">

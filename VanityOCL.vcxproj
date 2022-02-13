@@ -125,6 +125,7 @@
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="argumentsParser.c" />
     <ClCompile Include="cpu.c" />
     <ClCompile Include="ed25519-donna\ed25519.c" />
     <ClCompile Include="gpu.c" />
@@ -133,6 +134,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="argumentsParser.h" />
+    <ClInclude Include="bip39WordsEN.h" />
+    <ClInclude Include="bip39WordsES.h" />
+    <ClInclude Include="bip39WordsPT.h" />
     <ClInclude Include="cpu.h" />
     <ClInclude Include="ed25519-donna\ed25519.h" />
     <ClInclude Include="ed25519-donna\modm-donna-32bit.h" />

@@ -15,6 +15,8 @@
 
 struct CONFIG GlobalConfig;
 
+void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf);
+
 #ifdef OS_WINDOWS
 #include <Windows.h>
 #include <sysinfoapi.h>
@@ -30,47 +32,103 @@ int clock_gettime(int noNeed, struct timespec* spec) {
 #endif
 
 /**
- * Creates a random string inside buffer, with length size. The generated
- * string will contain ASCII characters from '!' to 'z'. Mininium 40 chars
- * to have 256-bit output. */
-void randstring(char * buffer, size_t length) {
-    if (GlobalConfig.charset[0] == 0) {
-        for (size_t n = 0; n < length; n++) {
-            char key = rand() % 89;
-            buffer[n] = '!' + key;
-        }
-    } else {
-        int32_t charsetLength = (int32_t)strlen(GlobalConfig.charset);
-        for (size_t n = 0; n < length; n++) {
-            size_t key = rand() % charsetLength;
-            buffer[n] = GlobalConfig.charset[key];
-        }
+ * Populate buffer with random number
+ */
+void seedRand(short * buffer, uint64_t length) {
+    for (size_t n = 0; n < length; n++) {
+        buffer[n] = (short)(rand() % GlobalConfig.charsetLength);
     }
 }
 
 /**
- * Increments one char at secret buffer. No buffer overflow is checked. */
-void incSecret(char * secret, size_t position) {
-    if (GlobalConfig.charset[0] == 0) {
-        if (secret[position] >= 'z') {
-            secret[position] = '!';
-            incSecret(secret, position + 1);
+ * Increments one value at aux buffer and refresh passphrase (only changes) */
+void incSecretAuxBufRegular(short * auxBuf, size_t position, struct PASSPHRASE * passBuf) {
+    if (auxBuf[position] == (short) GlobalConfig.charsetLength - 1) {
+        if (position == GlobalConfig.secretLength - 1) {
+            for (size_t i = 0; i < GlobalConfig.secretLength; i++) {
+                auxBuf[i] = 0;
+                passBuf->string[passBuf->offset + i] = GlobalConfig.charset[0];
+            }
             return;
         }
-        secret[position] += 1;
+        auxBuf[position] = 0;
+        passBuf->string[passBuf->offset + position] = GlobalConfig.charset[0];
+        incSecretAuxBufRegular(auxBuf, position + 1, passBuf);
+        return;
+    }
+    auxBuf[position]++;
+    passBuf->string[passBuf->offset + position] = GlobalConfig.charset[auxBuf[position]];
+    return;
+}
+
+/**
+ * Increments one value at aux buffer and refresh passphrase (only changes) */
+int incSecretAuxBufBip39(short * auxBuf, size_t position, struct PASSPHRASE * passBuf) {
+    if (auxBuf[position] == (short) GlobalConfig.charsetLength - 1) {
+        if (position == GlobalConfig.secretLength - 1) {
+            for (size_t i = 0; i < GlobalConfig.secretLength; i++) {
+                auxBuf[i] = 0;
+            }
+            return 0;
+        }
+        auxBuf[position] = 0;
+        if (incSecretAuxBufBip39(auxBuf, position + 1, passBuf) == 0) {
+            fillSecretBuffer(auxBuf, passBuf);
+        }
+        return 1;
+    }
+    auxBuf[position]++;
+    if (position == 0) {
+        char currChar;
+        size_t bip_pc = 0;
+        passBuf->offset += (*GlobalConfig.bipOffset)[auxBuf[position]];
+        do {
+            currChar = (*GlobalConfig.bipWords)[auxBuf[position]][bip_pc];
+            passBuf->string[passBuf->offset + bip_pc] = currChar;
+            bip_pc++;
+        } while (currChar != 0);
+        passBuf->string[passBuf->offset + bip_pc - 1] = ' ';
+    }
+    return 0;
+}
+
+/**
+ * Converts values from auxBuf to a valid PASSPHRASE
+ */
+void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf) {
+    if (GlobalConfig.useBip39) {
+        char temp[PASSPHRASE_MAX_LENGTH];
+        size_t pc = 0;
+        char currChar;
+        for (size_t word = 0; word < GlobalConfig.secretLength; word++) {
+            size_t bip_pc = 0;
+            do {
+                currChar = (*GlobalConfig.bipWords)[auxBuf[word]][bip_pc];
+                temp[pc] = currChar;
+                pc++;
+                bip_pc++;
+            } while (currChar != 0);
+            temp[pc - 1] = ' ';
+        }
+        if (GlobalConfig.salt[0] == 0) {
+            temp[pc - 1] = 0;
+        } else {
+            size_t salt_pc = 0;
+            do {
+                currChar = GlobalConfig.salt[salt_pc];
+                temp[pc] = currChar;
+                pc++;
+                salt_pc++;
+            } while (currChar != 0);
+        }
+        pc--;
+        passBuf->offset = PASSPHRASE_MAX_LENGTH - pc;
+        memcpy(passBuf->string + passBuf->offset, temp, pc);
     } else {
-        char * currCharHeight = strchr(GlobalConfig.charset, (int)secret[position]);
-        if (currCharHeight == NULL) {
-            printf("Internal error\n");
-            exit(2);
+        passBuf->offset = PASSPHRASE_MAX_LENGTH - GlobalConfig.secretLength;
+        for (size_t n = 0; n < GlobalConfig.secretLength; n++) {
+            passBuf->string[passBuf->offset + n] = GlobalConfig.charset[auxBuf[n]];
         }
-        size_t height = (size_t)(currCharHeight - GlobalConfig.charset);
-        if (height == strlen(GlobalConfig.charset) - 1) {
-            secret[position] = GlobalConfig.charset[0];
-            incSecret(secret, position + 1);
-            return;
-        }
-        secret[position] = GlobalConfig.charset[height + 1];
     }
 }
 
@@ -100,12 +158,12 @@ void initRand(void) {
     printf("Not good.. Got random seed from current second...\n");
 }
 
-double getPassphraseStrength(void) {
+void checkAndPrintPassphraseStrength(void) {
     size_t i;
     char * foundChar;
     double passStrength;
-    if (GlobalConfig.charset[0] == 0) {
-        passStrength = log2(pow(89.0, (double)GlobalConfig.secretLength));
+    if (GlobalConfig.useBip39) {
+        passStrength = log2(pow(2048.0, (double) GlobalConfig.secretLength)) + log2(pow(89.0, (double)strlen(GlobalConfig.salt)));
     } else {
         size_t charsetLength = strlen(GlobalConfig.charset);
         for (i=0; i< charsetLength; i++) {
@@ -123,11 +181,18 @@ double getPassphraseStrength(void) {
         }
         passStrength = log2(pow((double)strlen(GlobalConfig.charset), (double)GlobalConfig.secretLength));
     }
-    if (passStrength < 256.0) {
-        printf("Weak passphrase detected. It is %.f bits strong. It must be greater than 256 bits. Increase pass-length or increase charset length.\n", passStrength);
-        exit(1);
+    if (passStrength < 128.0) {
+        if (GlobalConfig.allowInsecure) {
+            printf("Proceeding with weak passphrase: %.f bits strong\n", passStrength);
+        } else {
+            printf("Your passphrase would be %.f bits strong. Refusing to continue with a passphrase weaker than 128-bit. Increase pass-length, increase charset or use the option '--pir' if you are expert.\n\n", passStrength);
+            exit(1);
+        }
+    } else if (passStrength < 256.0) {
+        printf("Your passphrase will be %.f bits strong, if attacker knows details about the charset, length and salt.\n", passStrength);
+    } else {
+        printf("Good! Your passphrase will be stronger than the signum blockchain cryptography.\n");
     }
-    return passStrength;
 }
 
 double estimate90percent(double findingChance) {
@@ -156,10 +221,11 @@ void appendDb(char *passphrase, char *address, uint64_t id) {
 
 int main(int argc, char ** argv) {
     uint8_t * ID;
-    char * secret;
+    struct PASSPHRASE * secretBuf;
+    short * secretAuxBuf;
     char printMask[RS_ADDRESS_STRING_SIZE];
     char rsAddress[RS_ADDRESS_STRING_SIZE];
-    char currentPassphrase[121];
+    char currentPassphrase[PASSPHRASE_MAX_LENGTH];
     struct timespec tstart, tend;
     int64_t seconds, nanos;
     double eventChance;
@@ -168,30 +234,31 @@ int main(int argc, char ** argv) {
     uint64_t end = 0;
     uint64_t rounds = 0;
     uint64_t previousRounds = 0;
-    uint64_t secretBufferSize;
     int maskIndex;
 
     size_t i;
 
-    initRand();
     maskIndex = argumentsParser(argc, argv);
-    secretBufferSize = GlobalConfig.secretLength * GlobalConfig.gpuThreads;
     maskToByteMask(argv[maskIndex], GlobalConfig.mask, GlobalConfig.suffix);
-    secret = (char *) malloc(secretBufferSize * 2);
-    if (secret == NULL) {
+    secretBuf = (struct PASSPHRASE *) malloc(sizeof (struct PASSPHRASE) * GlobalConfig.gpuThreads * 2);
+    secretAuxBuf = (short *) malloc(sizeof (short) * GlobalConfig.gpuThreads * GlobalConfig.secretLength * 2);
+    if (secretBuf == NULL || secretAuxBuf == NULL) {
         printf("Cannot allocate memory for passphrases buffer\n");
         exit(1);
     }
-    randstring(secret, secretBufferSize * 2);
+    initRand();
+    seedRand(secretAuxBuf, GlobalConfig.gpuThreads * GlobalConfig.secretLength * 2);
+    for (size_t n = 0; n < GlobalConfig.gpuThreads * 2; n++) {
+        fillSecretBuffer(secretAuxBuf + n * GlobalConfig.secretLength, &secretBuf[n]);
+    }
+    checkAndPrintPassphraseStrength();
     if (GlobalConfig.useGpu) {
         ID = gpuInit();
     } else {
         ID = cpuInit();
     }
-
     byteMaskToPrintMask(GlobalConfig.mask, printMask);
-    printf("Using MASK %s\n", printMask);
-    printf("Your passphrase will be %.f bits strong!\n", getPassphraseStrength());
+    printf("Using mask %s\n", printMask);
     eventChance = findingChance(GlobalConfig.mask);
     printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", estimate90percent(eventChance));
 
@@ -199,14 +266,26 @@ int main(int argc, char ** argv) {
 #if MDEBUG == 0
     do {
         rounds++;
-        for (i = 0; i < GlobalConfig.gpuThreads; i++) {
-            incSecret(secret + secretBufferSize * ((rounds + 1) % 2) + GlobalConfig.secretLength * i, 0);
+        short * currAuxBufItem = secretAuxBuf + (GlobalConfig.gpuThreads * GlobalConfig.secretLength) * ((rounds + 1) % 2);
+        struct PASSPHRASE * currPassphrase = &secretBuf[GlobalConfig.gpuThreads * ((rounds + 1) % 2)];
+        if (GlobalConfig.useBip39) {
+            for (i = 0; i < GlobalConfig.gpuThreads; i++) {
+                incSecretAuxBufBip39(currAuxBufItem, 0, currPassphrase);
+                currAuxBufItem += GlobalConfig.secretLength;
+                currPassphrase++;
+            }
+        } else {
+            for (i = 0; i < GlobalConfig.gpuThreads; i++) {
+                incSecretAuxBufRegular(currAuxBufItem, 0, currPassphrase);
+                currAuxBufItem += GlobalConfig.secretLength;
+                currPassphrase++;
+            }
         }
 #endif
         if (GlobalConfig.useGpu) {
-            gpuSolver(secret + secretBufferSize * ((rounds + 1) % 2), ID);
+            gpuSolver(&secretBuf[GlobalConfig.gpuThreads * ((rounds + 1) % 2)], ID);
         } else {
-            cpuSolver(secret + secretBufferSize * (rounds % 2), ID);
+            cpuSolver(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], ID);
         }
         if ((rounds % roundsToPrint) == 0) {
             clock_gettime(CLOCK_REALTIME, &tend);
@@ -214,7 +293,7 @@ int main(int argc, char ** argv) {
             nanos = ((seconds * 1000000000LL) + tend.tv_nsec) - tstart.tv_nsec;
             timeInterval = (double) nanos / 1000000000.0;
             uint64_t currentTries = rounds * GlobalConfig.gpuThreads;
-            solveOnlyOne(secret + secretBufferSize * (rounds % 2), rsAddress);
+            solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], rsAddress);
             printf(
                 "\r %llu tries - Lucky chance: %.1f%% - %.0f tries/second. Last generated S-%s",
                 PRINTF_CAST currentTries,
@@ -236,9 +315,13 @@ int main(int argc, char ** argv) {
         }
         for (i = 0; i < GlobalConfig.gpuThreads; i++) {
             if (ID[i] == 1) {
-                memcpy(currentPassphrase, secret + secretBufferSize * (rounds % 2) + i * GlobalConfig.secretLength, GlobalConfig.secretLength);
-                currentPassphrase[GlobalConfig.secretLength]='\0';
-                uint64_t newId = solveOnlyOne(currentPassphrase, rsAddress);
+                memcpy(
+                    currentPassphrase,
+                    secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].string + secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset,
+                    PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset
+                );
+                currentPassphrase[PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset]='\0';
+                uint64_t newId = solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i], rsAddress);
                 if (GlobalConfig.appendDb == 1) {
                     appendDb(currentPassphrase, rsAddress, newId);
                 }
@@ -268,13 +351,21 @@ int main(int argc, char ** argv) {
 #if MDEBUG == 0
     } while (end == 0);
 #else
-    for (i = 0; i < GlobalConfig.gpuThreads * 2; i++) {
+    for (i = 0; i < GlobalConfig.gpuThreads; i++) {
         printf(
             "'%*.*s': %x\n",
-            (int)GlobalConfig.secretLength,
-            (int)GlobalConfig.secretLength,
-            secret + i * GlobalConfig.secretLength,
+            PASSPHRASE_MAX_LENGTH - (int)secretBuf[i].offset,
+            PASSPHRASE_MAX_LENGTH - (int)secretBuf[i].offset,
+            secretBuf[i].string + secretBuf[i].offset,
             ID[i]
+        );
+    }
+    for (i = GlobalConfig.gpuThreads; i < GlobalConfig.gpuThreads * 2; i++) {
+        printf(
+            "'%*.*s': N/A\n",
+            PASSPHRASE_MAX_LENGTH - (int)secretBuf[i].offset,
+            PASSPHRASE_MAX_LENGTH - (int)secretBuf[i].offset,
+            secretBuf[i].string + secretBuf[i].offset
         );
     }
 #endif

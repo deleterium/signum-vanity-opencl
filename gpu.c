@@ -15,9 +15,7 @@ static cl_kernel kernel;
 static cl_command_queue command_queue;
 
 static cl_mem pinnedClMemResult, clMemResult;
-static cl_mem clMemPassphrase, clMemPassLength, clMemResultMask;
-
-static uint32_t passLengthArr[3];
+static cl_mem clMemPassphrase, clMemResultMask;
 
 void load_source();
 void createDevice();
@@ -26,30 +24,15 @@ uint8_t * create_clobj();
 void check_error(cl_int error, int position);
 
 uint8_t * gpuInit(void) {
-    passLengthArr[0] = (uint32_t) GlobalConfig.secretLength;
-    passLengthArr[1] = 0;
-    passLengthArr[2] = 0;
     load_source();
     createDevice();
     createkernel();
     return create_clobj();
 }
 
-void gpuSolver(char * inputBatch, uint8_t * resultBatch) {
+void gpuSolver(struct PASSPHRASE * inputBatch, uint8_t * resultBatch) {
     static size_t firstRound = 1;
     if (firstRound) {
-        ret = clEnqueueWriteBuffer(
-            command_queue,
-            clMemPassLength,
-            CL_FALSE,
-            0,
-            sizeof(uint32_t) * 3,
-            passLengthArr,
-            0,
-            NULL,
-            NULL
-        );
-        check_error(ret, 50);
         ret = clEnqueueWriteBuffer(
             command_queue,
             clMemResultMask,
@@ -87,7 +70,7 @@ void gpuSolver(char * inputBatch, uint8_t * resultBatch) {
         clMemPassphrase,
         CL_FALSE,
         0,
-        GlobalConfig.secretLength * GlobalConfig.gpuThreads,
+        sizeof(struct PASSPHRASE) * GlobalConfig.gpuThreads,
         inputBatch,
         0,
         NULL,
@@ -144,18 +127,10 @@ uint8_t * create_clobj(void) {
     );
     check_error(ret, 108);
 
-    clMemPassLength = clCreateBuffer(
-        context,
-        CL_MEM_READ_ONLY,
-        sizeof(uint32_t) * 3,
-        NULL,
-        &ret
-    );
-    check_error(ret, 109);
     clMemPassphrase = clCreateBuffer(
         context,
         CL_MEM_READ_ONLY,
-        GlobalConfig.secretLength * GlobalConfig.gpuThreads,
+        sizeof(struct PASSPHRASE) * GlobalConfig.gpuThreads,
         NULL,
         &ret
     );
@@ -177,13 +152,11 @@ uint8_t * create_clobj(void) {
     );
     check_error(ret, 109);
 
-    ret = clSetKernelArg(kernel, 0, sizeof(clMemPassLength), (void *) &clMemPassLength);
-    check_error(ret, 110);
-    ret = clSetKernelArg(kernel, 1, sizeof(clMemPassphrase), (void *) &clMemPassphrase);
+    ret = clSetKernelArg(kernel, 0, sizeof(clMemPassphrase), (void *) &clMemPassphrase);
     check_error(ret, 120);
-    ret = clSetKernelArg(kernel, 2, sizeof(clMemResult), (void *) &clMemResult);
+    ret = clSetKernelArg(kernel, 1, sizeof(clMemResult), (void *) &clMemResult);
     check_error(ret, 130);
-    ret = clSetKernelArg(kernel, 3, sizeof(clMemResultMask), (void *) &clMemResultMask);
+    ret = clSetKernelArg(kernel, 2, sizeof(clMemResultMask), (void *) &clMemResultMask);
     check_error(ret, 130);
     return resultBuf;
 }
