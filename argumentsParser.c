@@ -25,7 +25,7 @@ Example: vanity --cpu --pass-length 32 SGN@
 Options:
   --help             Show this help statement
   --suffix           Match given mask from the end of address. Default is to match from the beginning
-  --pass-length N    Passphrase length. Max 134 chars. Default: 64
+  --pass-length N    Passphrase length. Max 142 chars. Default: 64
   --cpu              Set to use CPU and disable using GPU
   --gpu              Set to use GPU. Already is default
   --gpu-platform N   Select GPU from platorm N. Default: 0
@@ -76,6 +76,7 @@ int argumentsParser(int argc, char **argv) {
     GlobalConfig.useBip39 = 0;
     GlobalConfig.bipWords = &bipWordsEN;
     GlobalConfig.bipOffset = &bipOffsetEN;
+    GlobalConfig.allowInsecure = 0;
 
 
     if (argc == 1) {
@@ -105,12 +106,17 @@ int argumentsParser(int argc, char **argv) {
             if (i >= argc) {
                 endProgram("Expecting value for pass-length.");
             }
-            if (GlobalConfig.useBip39) {
-                endProgram("Option --pass-length conflicts with --use-bip39.");
-            }
             GlobalConfig.secretLength = strtol(argv[i], NULL, 10);
+            if (GlobalConfig.useBip39) {
+                if (GlobalConfig.secretLength > 12) {
+                    endProgram("Option --pass-length conflicts with --use-bip39.");
+                }
+            }
             if (GlobalConfig.secretLength >= PASSPHRASE_MAX_LENGTH){
                 endProgram("Passphrase length exceeded maximum value.\nTry '--help'.");
+            }
+            if (GlobalConfig.secretLength < 2) {
+                endProgram("Minimum passphrase length is 2.");
             }
             continue;
         }
@@ -219,6 +225,10 @@ int argumentsParser(int argc, char **argv) {
             GlobalConfig.useGpu = 1;
             continue;
         }
+        if (strcmp(argv[i], "--pir") == 0) {
+            GlobalConfig.allowInsecure = 1;
+            continue;
+        }
         if (strcmp(argv[i], "--cpu") == 0) {
             GlobalConfig.useGpu = 0;
             GlobalConfig.gpuThreads = 256;
@@ -226,7 +236,9 @@ int argumentsParser(int argc, char **argv) {
         }
         if (strcmp(argv[i], "--use-bip39") == 0) {
             GlobalConfig.useBip39 = 1;
-            GlobalConfig.secretLength = 12;
+            if (GlobalConfig.secretLength > 12) {
+                GlobalConfig.secretLength = 12;
+            }
             GlobalConfig.charsetLength = 2048;
             continue;
         }

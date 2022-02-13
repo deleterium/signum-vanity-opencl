@@ -100,7 +100,7 @@ void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf) {
         char temp[PASSPHRASE_MAX_LENGTH];
         size_t pc = 0;
         char currChar;
-        for (size_t word=0; word<12; word++) {
+        for (size_t word = 0; word < GlobalConfig.secretLength; word++) {
             size_t bip_pc = 0;
             do {
                 currChar = (*GlobalConfig.bipWords)[auxBuf[word]][bip_pc];
@@ -163,7 +163,7 @@ void checkAndPrintPassphraseStrength(void) {
     char * foundChar;
     double passStrength;
     if (GlobalConfig.useBip39) {
-        passStrength = log2(pow(2048.0, 12.0)) + log2(pow(89.0, (double)strlen(GlobalConfig.salt)));
+        passStrength = log2(pow(2048.0, (double) GlobalConfig.secretLength)) + log2(pow(89.0, (double)strlen(GlobalConfig.salt)));
     } else {
         size_t charsetLength = strlen(GlobalConfig.charset);
         for (i=0; i< charsetLength; i++) {
@@ -182,8 +182,12 @@ void checkAndPrintPassphraseStrength(void) {
         passStrength = log2(pow((double)strlen(GlobalConfig.charset), (double)GlobalConfig.secretLength));
     }
     if (passStrength < 128.0) {
-        printf("Your passphrase would be %.f bits strong. Refusing to continue with a passphrase weaker than 128-bit. Increase pass-length or increase charset length.\n\n", passStrength);
-        exit(1);
+        if (GlobalConfig.allowInsecure) {
+            printf("Proceeding with weak passphrase: %.f bits strong\n", passStrength);
+        } else {
+            printf("Your passphrase would be %.f bits strong. Refusing to continue with a passphrase weaker than 128-bit. Increase pass-length, increase charset or use the option '--pir' if you are expert.\n\n", passStrength);
+            exit(1);
+        }
     } else if (passStrength < 256.0) {
         printf("Your passphrase will be %.f bits strong, if attacker knows details about the charset, length and salt.\n", passStrength);
     } else {

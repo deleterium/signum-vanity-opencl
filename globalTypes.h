@@ -45,6 +45,7 @@ struct CONFIG {
         useBip39,
         suffix,
         appendDb,
+        allowInsecure,
         endless;
     uint8_t mask[RS_ADDRESS_BYTE_SIZE];
     const char (*bipWords)[2048][16],
