@@ -234,7 +234,6 @@ int main(int argc, char ** argv) {
 
     size_t i;
 
-    initRand();
     maskIndex = argumentsParser(argc, argv);
     maskToByteMask(argv[maskIndex], GlobalConfig.mask, GlobalConfig.suffix);
     secretBuf = (struct PASSPHRASE *) malloc(sizeof (struct PASSPHRASE) * GlobalConfig.gpuThreads * 2);
@@ -243,19 +242,19 @@ int main(int argc, char ** argv) {
         printf("Cannot allocate memory for passphrases buffer\n");
         exit(1);
     }
+    initRand();
     seedRand(secretAuxBuf, GlobalConfig.gpuThreads * GlobalConfig.secretLength * 2);
     for (size_t n = 0; n < GlobalConfig.gpuThreads * 2; n++) {
         fillSecretBuffer(secretAuxBuf + n * GlobalConfig.secretLength, &secretBuf[n]);
     }
+    checkAndPrintPassphraseStrength();
     if (GlobalConfig.useGpu) {
         ID = gpuInit();
     } else {
         ID = cpuInit();
     }
-
     byteMaskToPrintMask(GlobalConfig.mask, printMask);
-    printf("Using MASK %s\n", printMask);
-    checkAndPrintPassphraseStrength();
+    printf("Using mask %s\n", printMask);
     eventChance = findingChance(GlobalConfig.mask);
     printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", estimate90percent(eventChance));
 
