@@ -28,7 +28,7 @@ Example: vanity --cpu --pass-length 32 SGN@
 Options:
   --help             Show this help statement
   --suffix           Match given mask from the end of address. Default is to match from the beginning
-  --pass-length N    Passphrase length. Max 134 chars. Default: 64
+  --pass-length N    Passphrase length. Max 142 chars. Default: 64
   --cpu              Set to use CPU and disable using GPU
   --gpu              Set to use GPU. Already is default
   --gpu-platform N   Select GPU from platorm N. Default: 0
