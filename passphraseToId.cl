@@ -2356,7 +2356,7 @@ __kernel void process (
     uchar publicKey[32];
     uint passwordHash[8];
     uint fullID[8];
-    uint uintPass[30];
+    uint uintPass[(PASSPHRASE_MAX_LENGTH / 4) + 1];
     int passphraseLength = PASSPHRASE_MAX_LENGTH - passphrase[thread].offset;
 
     if (passphraseLength > PASSPHRASE_MAX_LENGTH) {
