@@ -45,6 +45,62 @@ void seedRand(short * buffer, uint64_t length) {
     }
 }
 
+void loadBipFile(void) {
+    FILE * fp;
+    fp = fopen(GlobalConfig.bipFilename, "r");
+    if (!fp) {
+        fprintf(stderr, "Failed to load bip words file '%s'.\n", GlobalConfig.bipFilename);
+        exit(1);
+    }
+    fseek(fp, 0L, SEEK_END);
+    size_t source_size = ftell(fp);
+    fseek(fp, 0L, SEEK_SET);
+    char * bipSource = (char*)malloc(source_size * sizeof(char));
+    if (fread(bipSource, sizeof(char), source_size, fp) != source_size) {
+        fprintf(stderr, "Failed to read bip words file '%s'.\n", GlobalConfig.bipFilename);
+        exit(1);
+    }
+    fclose(fp);
+
+    size_t numOfRecords = 0;
+    for (size_t i = 0; i < source_size; i++) {
+        if (bipSource[i] == '\n') {
+            numOfRecords++;
+        }
+    }
+    GlobalConfig.bipWords = malloc(numOfRecords * BIPWORD_BUFFER_SIZE * sizeof(char));
+    GlobalConfig.bipOffset = malloc(numOfRecords * sizeof(char));
+    GlobalConfig.charsetLength = numOfRecords;
+
+    int lastRecSize = 0;
+    int pcBip = 0;
+    for (size_t i = 0, rec = 0; i < source_size; i++) {
+        switch (bipSource[i]) {
+        case '\n':
+            (*GlobalConfig.bipWords)[rec][pcBip] = 0;
+            (*GlobalConfig.bipOffset)[rec] = lastRecSize - pcBip;
+            rec++;
+            lastRecSize = pcBip;
+            pcBip = 0;
+            continue;
+        case '\r':
+            continue;
+        default:
+            if (pcBip == BIPWORD_BUFFER_SIZE - 1) {
+                fprintf(stderr, "Buffer overflow reading bip words file '%s'.\n", GlobalConfig.bipFilename);
+                exit(1);
+            }
+           (*GlobalConfig.bipWords)[rec][pcBip] = bipSource[i];
+           pcBip++;
+        }
+    }
+    if (pcBip != 0) {
+        fprintf(stderr, "Error reading bip words file '%s'. Missing new line at the end.\n", GlobalConfig.bipFilename);
+        exit(1);
+    }
+    free(bipSource);
+}
+
 /**
  * Increments one value at aux buffer and refresh passphrase (only changes) */
 void incSecretAuxBufRegular(short * auxBuf, size_t position, struct PASSPHRASE * passBuf) {
@@ -102,7 +158,7 @@ int incSecretAuxBufBip39(short * auxBuf, size_t position, struct PASSPHRASE * pa
  */
 void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf) {
     if (GlobalConfig.useBip39) {
-        char temp[PASSPHRASE_MAX_LENGTH];
+        char temp[2 * PASSPHRASE_MAX_LENGTH];
         size_t pc = 0;
         char currChar;
         for (size_t word = 0; word < GlobalConfig.secretLength; word++) {
@@ -127,6 +183,13 @@ void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf) {
             } while (currChar != 0);
         }
         pc--;
+        if (pc > PASSPHRASE_MAX_LENGTH - BIPWORD_BUFFER_SIZE) {
+            // Overflow, remove last word
+            pc = PASSPHRASE_MAX_LENGTH - BIPWORD_BUFFER_SIZE;
+            while (temp[pc] != ' ') {
+                --pc;
+            }
+        }
         passBuf->offset = PASSPHRASE_MAX_LENGTH - pc;
         memcpy(passBuf->string + passBuf->offset, temp, pc);
     } else {
@@ -168,7 +231,7 @@ void checkAndPrintPassphraseStrength(void) {
     char * foundChar;
     double passStrength;
     if (GlobalConfig.useBip39) {
-        passStrength = log2(pow(2048.0, (double) GlobalConfig.secretLength)) + log2(pow(89.0, (double)strlen(GlobalConfig.salt)));
+        passStrength = log2(pow((double) GlobalConfig.charsetLength, (double) GlobalConfig.secretLength)) + log2(pow(89.0, (double)strlen(GlobalConfig.salt)));
     } else {
         size_t charsetLength = strlen(GlobalConfig.charset);
         for (i=0; i< charsetLength; i++) {
@@ -226,6 +289,9 @@ int main(int argc, char ** argv) {
     if (secretBuf == NULL || secretAuxBuf == NULL) {
         fprintf(stderr, "Cannot allocate memory for passphrases buffer\n");
         return EXIT_FAILURE;
+    }
+    if (GlobalConfig.useBip39) {
+        loadBipFile();
     }
     initRand();
     seedRand(secretAuxBuf, GlobalConfig.gpuThreads * GlobalConfig.secretLength * 2);

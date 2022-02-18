@@ -31,7 +31,9 @@
 #include "ReedSolomon.h"
 
 #define PASSPHRASE_MAX_LENGTH 143
-#define BIP_MAX_LENGTH (9 * 12 + 11)
+#define SALT_MAX_LENGTH 21
+#define DEFAULT_PASS_LENGTH 64
+#define BIPWORD_BUFFER_SIZE 16
 
 struct CONFIG {
     uint64_t
@@ -49,10 +51,11 @@ struct CONFIG {
         allowInsecure,
         endless;
     uint8_t mask[RS_ADDRESS_BYTE_SIZE];
-    const char (*bipWords)[2048][16],
-        (*bipOffset)[2048];
+    char (*bipWords)[][BIPWORD_BUFFER_SIZE],
+        (*bipOffset)[];
     char charset[120],
-        salt[PASSPHRASE_MAX_LENGTH - BIP_MAX_LENGTH];
+        bipFilename[21],
+        salt[SALT_MAX_LENGTH];
 };
 
 struct PASSPHRASE {
