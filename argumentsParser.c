@@ -258,8 +258,8 @@ int argumentsParser(int argc, char **argv) {
         printf("Unknow command line option: %s\nTry '--help'.\n", argv[i]);
         exit(1);
     }
-    if (maskIndex == -1) {
-        endProgram("Error: MASK was not specified... Try '--help'.");
-    }
+    // if (maskIndex == -1) {
+    //     endProgram("Error: MASK was not specified... Try '--help'.");
+    // }
     return maskIndex;
 }

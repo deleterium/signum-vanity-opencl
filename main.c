@@ -3,6 +3,7 @@
 #define MDEBUG 0
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <math.h>
@@ -10,9 +11,10 @@
 #include "globalTypes.h"
 #include "argumentsParser.h"
 #include "cpu.h"
-#include "gpu.h"
 #include "ReedSolomon.h"
 
+// Compiling command:
+// gcc -o vanity main.c cpu.c ReedSolomon.c ed25519-donna/ed25519.c argumentsParser.c -m64 -lcrypto -lm -O2 -Wextra
 struct CONFIG GlobalConfig;
 
 void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf);
@@ -195,28 +197,52 @@ void checkAndPrintPassphraseStrength(void) {
     }
 }
 
-double estimate90percent(double findingChance) {
-    return (-1.0 / log10((1.0 - findingChance)));
-}
+// double estimate90percent(double findingChance) {
+//     return (-1.0 / log10((1.0 - findingChance)));
+// }
 
-double luckyChance(double numberOfEvents, double findingChance) {
-    return (1.0 - pow(1.0 - findingChance,numberOfEvents)) * 100.0;
-}
+// double luckyChance(double numberOfEvents, double findingChance) {
+//     return (1.0 - pow(1.0 - findingChance,numberOfEvents)) * 100.0;
+// }
 
 void appendDb(char *passphrase, char *address, uint64_t id) {
-    FILE *database = fopen("database.csv", "a");
-    if (database == NULL) {
-        printf("Failed operation to open database file.\n");
-        exit(1);
+    static int first = 1;
+    static uint64_t record = 0;
+    static FILE *database = NULL;
+    static uint64_t fileNum = 0;
+    char filename[80];
+
+    if ((record % 1000000) == 0) {
+        if (first) {
+            do {
+                sprintf(filename, "db%08llu.csv", PRINTF_CAST fileNum);
+                database = fopen(filename, "r+");
+                fileNum++;
+            } while (database != NULL);
+            database = fopen(filename, "w");
+            if (database == NULL) {
+                printf("Failed operation to create new database file.\n");
+                exit(1);
+            }
+            first = 0;
+        } else {
+            fclose(database);
+            sprintf(filename, "db%08llu.csv", PRINTF_CAST fileNum);
+            fileNum++;
+            database = fopen(filename, "w");
+            if (database == NULL) {
+                printf("Failed operation to create new database file.\n");
+                exit(1);
+            }
+        }
     }
     fprintf(
         database,
-        "\"%s\",\"%s\",\"%llu\"\n",
-        passphrase,
-        address,
-        PRINTF_CAST id
+        "\"%016llx\",\"%s\"\n",
+        PRINTF_CAST id,
+        passphrase
     );
-    fclose(database);
+    record++;
 }
 
 int main(int argc, char ** argv) {
@@ -239,7 +265,7 @@ int main(int argc, char ** argv) {
     size_t i;
 
     maskIndex = argumentsParser(argc, argv);
-    maskToByteMask(argv[maskIndex], GlobalConfig.mask, GlobalConfig.suffix);
+    // maskToByteMask(argv[maskIndex], GlobalConfig.mask, GlobalConfig.suffix);
     secretBuf = (struct PASSPHRASE *) malloc(sizeof (struct PASSPHRASE) * GlobalConfig.gpuThreads * 2);
     secretAuxBuf = (short *) malloc(sizeof (short) * GlobalConfig.gpuThreads * GlobalConfig.secretLength * 2);
     if (secretBuf == NULL || secretAuxBuf == NULL) {
@@ -253,14 +279,16 @@ int main(int argc, char ** argv) {
     }
     checkAndPrintPassphraseStrength();
     if (GlobalConfig.useGpu) {
-        ID = gpuInit();
+        fprintf(stderr, "GPU not supported in this version\n");
+        exit(1);
+        // ID = gpuInit();
     } else {
         ID = cpuInit();
     }
-    byteMaskToPrintMask(GlobalConfig.mask, printMask);
-    printf("Using mask %s\n", printMask);
-    eventChance = findingChance(GlobalConfig.mask);
-    printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", estimate90percent(eventChance));
+    // byteMaskToPrintMask(GlobalConfig.mask, printMask);
+    // printf("Using mask %s\n", printMask);
+    // eventChance = findingChance(GlobalConfig.mask);
+    // printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", estimate90percent(eventChance));
 
     clock_gettime(CLOCK_REALTIME, &tstart);
 #if MDEBUG == 0
@@ -282,24 +310,24 @@ int main(int argc, char ** argv) {
             }
         }
 #endif
-        if (GlobalConfig.useGpu) {
-            gpuSolver(&secretBuf[GlobalConfig.gpuThreads * ((rounds + 1) % 2)], ID);
-        } else {
-            cpuSolver(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], ID);
-        }
+        // if (GlobalConfig.useGpu) {
+        //     gpuSolver(&secretBuf[GlobalConfig.gpuThreads * ((rounds + 1) % 2)], ID);
+        // } else {
+        //     cpuSolver(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], ID);
+        // }
         if ((rounds % roundsToPrint) == 0) {
             clock_gettime(CLOCK_REALTIME, &tend);
             seconds = (tend.tv_sec - tstart.tv_sec);
             nanos = ((seconds * 1000000000LL) + tend.tv_nsec) - tstart.tv_nsec;
             timeInterval = (double) nanos / 1000000000.0;
             uint64_t currentTries = rounds * GlobalConfig.gpuThreads;
-            solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], rsAddress);
+            // solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], rsAddress);
             printf(
-                "\r %llu tries - Lucky chance: %.1f%% - %.0f tries/second. Last generated S-%s",
+                "\r %llu tries - %.0f tries/second.",
                 PRINTF_CAST currentTries,
-                luckyChance((double)currentTries, eventChance),
-                (double) ((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval,
-                rsAddress
+                // luckyChance((double)currentTries, eventChance),
+                (double) ((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval
+                // rsAddress
             );
             fflush(stdout);
             clock_gettime(CLOCK_REALTIME, &tstart);
@@ -314,39 +342,37 @@ int main(int argc, char ** argv) {
             previousRounds = rounds;
         }
         for (i = 0; i < GlobalConfig.gpuThreads; i++) {
-            if (ID[i] == 1) {
-                memcpy(
-                    currentPassphrase,
-                    secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].string + secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset,
-                    PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset
-                );
-                currentPassphrase[PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset]='\0';
-                uint64_t newId = solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i], rsAddress);
-                if (GlobalConfig.appendDb == 1) {
-                    appendDb(currentPassphrase, rsAddress, newId);
-                }
-                if (GlobalConfig.endless == 0) {
-                    printf(
-                        "\nPassphrase: '%s' RS: S-%s id: %20llu\n",
-                        currentPassphrase,
-                        rsAddress,
-                        PRINTF_CAST newId
-                    );
-                    fflush(stdout);
-                    end = 1;
-                    break;
-                } else {
-                    printf(
-                        "\rPassphrase: '%s' RS: S-%s id: %20llu\n",
-                        currentPassphrase,
-                        rsAddress,
-                        PRINTF_CAST newId
-                    );
-                    fflush(stdout);
-                    rounds %= 2;
-                    previousRounds = rounds;
-                }
+            memcpy(
+                currentPassphrase,
+                secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].string + secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset,
+                PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset
+            );
+            currentPassphrase[PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset]='\0';
+            uint64_t newId = solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i], rsAddress);
+            if (GlobalConfig.appendDb == 1) {
+                appendDb(currentPassphrase, rsAddress, newId);
             }
+            // if (GlobalConfig.endless == 0) {
+            //     printf(
+            //         "\nPassphrase: '%s' RS: S-%s id: %20llu\n",
+            //         currentPassphrase,
+            //         rsAddress,
+            //         PRINTF_CAST newId
+            //     );
+            //     fflush(stdout);
+            //     end = 1;
+            //     break;
+            // } else {
+            //     printf(
+            //         "\rPassphrase: '%s' RS: S-%s id: %20llu\n",
+            //         currentPassphrase,
+            //         rsAddress,
+            //         PRINTF_CAST newId
+            //     );
+            //     fflush(stdout);
+            //     rounds %= 2;
+            //     previousRounds = rounds;
+            // }
         }
 #if MDEBUG == 0
     } while (end == 0);
