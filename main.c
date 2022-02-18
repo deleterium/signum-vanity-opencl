@@ -186,10 +186,10 @@ void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf) {
                 --pc;
             }
         }
-        passBuf->offset = PASSPHRASE_MAX_LENGTH - pc;
+        passBuf->offset = (uint8_t)(PASSPHRASE_MAX_LENGTH - pc);
         memcpy(passBuf->string + passBuf->offset, temp, pc);
     } else {
-        passBuf->offset = PASSPHRASE_MAX_LENGTH - GlobalConfig.secretLength;
+        passBuf->offset = (uint8_t)(PASSPHRASE_MAX_LENGTH - GlobalConfig.secretLength);
         for (size_t n = 0; n < GlobalConfig.secretLength; n++) {
             passBuf->string[passBuf->offset + n] = GlobalConfig.charset[auxBuf[n]];
         }
@@ -301,6 +301,11 @@ int main(int argc, char ** argv) {
     int maskIndex;
 
     size_t i;
+
+#ifdef OS_WINDOWS
+    // Allow utf-8 strings
+    SetConsoleOutputCP(65001);
+#endif
 
     maskIndex = argumentsParser(argc, argv);
     maskToByteMask(argv[maskIndex], GlobalConfig.mask, GlobalConfig.suffix);

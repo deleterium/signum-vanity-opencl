@@ -38,15 +38,6 @@
     <ClInclude Include="argumentsParser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="bip39WordsEN.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="bip39WordsES.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="bip39WordsPT.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="cpu.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -82,5 +73,16 @@
     <None Include="README.md">
       <Filter>Resource Files</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="bip39WordsEN.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="bip39WordsES.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="bip39WordsFR.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
 </Project>
