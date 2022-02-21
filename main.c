@@ -11,10 +11,15 @@
 #include "globalTypes.h"
 #include "argumentsParser.h"
 #include "cpu.h"
+#include "gpu.h"
 #include "ReedSolomon.h"
 
+#include <libmongoc-1.0/mongoc/mongoc.h>
+#include <libbson-1.0/bson.h>
+
 // Compiling command:
-// gcc -o vanity main.c cpu.c ReedSolomon.c ed25519-donna/ed25519.c argumentsParser.c -m64 -lcrypto -lm -O2 -Wextra
+// gcc -o vanity main.c cpu.c gpu.c ReedSolomon.c ed25519-donna/ed25519.c argumentsParser.c -m64 -lcrypto  -lOpenCL -lm -O2 -Wextra $(pkg-config --libs --cflags libmongoc-1.0)
+
 struct CONFIG GlobalConfig;
 
 void fillSecretBuffer(short * auxBuf, struct PASSPHRASE * passBuf);
@@ -197,53 +202,13 @@ void checkAndPrintPassphraseStrength(void) {
     }
 }
 
-// double estimate90percent(double findingChance) {
-//     return (-1.0 / log10((1.0 - findingChance)));
-// }
-
-// double luckyChance(double numberOfEvents, double findingChance) {
-//     return (1.0 - pow(1.0 - findingChance,numberOfEvents)) * 100.0;
-// }
-
-void appendDb(char *passphrase, char *address, uint64_t id) {
-    static int first = 1;
-    static uint64_t record = 0;
-    static FILE *database = NULL;
-    static uint64_t fileNum = 0;
-    char filename[80];
-
-    if ((record % 1000000) == 0) {
-        if (first) {
-            do {
-                sprintf(filename, "db%08llu.csv", PRINTF_CAST fileNum);
-                database = fopen(filename, "r+");
-                fileNum++;
-            } while (database != NULL);
-            database = fopen(filename, "w");
-            if (database == NULL) {
-                printf("Failed operation to create new database file.\n");
-                exit(1);
-            }
-            first = 0;
-        } else {
-            fclose(database);
-            sprintf(filename, "db%08llu.csv", PRINTF_CAST fileNum);
-            fileNum++;
-            database = fopen(filename, "w");
-            if (database == NULL) {
-                printf("Failed operation to create new database file.\n");
-                exit(1);
-            }
-        }
+static void destroy_all (bson_t **ptr, int n) {
+    for (int i = 0; i < n; i++) {
+        bson_destroy (ptr[i]);
     }
-    fprintf(
-        database,
-        "\"%016llx\",\"%s\"\n",
-        PRINTF_CAST id,
-        passphrase
-    );
-    record++;
 }
+
+#define N_BSONS 256
 
 int main(int argc, char ** argv) {
     uint8_t * ID;
@@ -261,11 +226,70 @@ int main(int argc, char ** argv) {
     uint64_t rounds = 0;
     uint64_t previousRounds = 0;
     int maskIndex;
-
+    
     size_t i;
 
+    /* START MONGO INITIALIZATION */
+    const char *uri_string = "mongodb://localhost:27017";
+    mongoc_uri_t *uri;
+    mongoc_client_t *client;
+    mongoc_database_t *database;
+    mongoc_collection_t *collection;
+    bson_t *command, reply, *insert;
+    bson_error_t error;
+    char *str;
+    bool retval;
+    /*
+    * Required to initialize libmongoc's internals
+    */
+    mongoc_init ();
+    /*
+    * Safely create a MongoDB URI object from the given string
+    */
+    uri = mongoc_uri_new_with_error (uri_string, &error);
+    if (!uri) {
+        fprintf (
+            stderr,
+            "failed to parse URI: %s\n"
+            "error message:       %s\n",
+            uri_string,
+            error.message);
+        return EXIT_FAILURE;
+    }
+    /*
+    * Create a new client instance
+    */
+    client = mongoc_client_new_from_uri (uri);
+    if (!client) {
+        return EXIT_FAILURE;
+    }
+    /*
+    * Register the application name so we can track it in the profile logs
+    * on the server. This can also be done from the URI (see other examples).
+    */
+    mongoc_client_set_appname (client, "vanity");
+    /*
+    * Get a handle on the database "db_name" and collection "coll_name"
+    */
+    database = mongoc_client_get_database (client, "vanityDB");
+    collection = mongoc_client_get_collection (client, "vanityDB", "passphrases");
+    /*
+    * Do work. This example pings the database, prints the result as JSON and
+    * performs an insert
+    */
+    command = BCON_NEW ("ping", BCON_INT32 (1));
+    retval = mongoc_client_command_simple ( client, "admin", command, NULL, &reply, &error);
+    if (!retval) {
+        fprintf (stderr, "%s\n", error.message);
+        return EXIT_FAILURE;
+    }
+    str = bson_as_json (&reply, NULL);
+    printf ("%s\n", str);
+    bson_free (str);
+    /* END MONGO INITIALIZATION */
+
     maskIndex = argumentsParser(argc, argv);
-    // maskToByteMask(argv[maskIndex], GlobalConfig.mask, GlobalConfig.suffix);
+    maskToByteMask(argv[maskIndex], GlobalConfig.mask, GlobalConfig.suffix);
     secretBuf = (struct PASSPHRASE *) malloc(sizeof (struct PASSPHRASE) * GlobalConfig.gpuThreads * 2);
     secretAuxBuf = (short *) malloc(sizeof (short) * GlobalConfig.gpuThreads * GlobalConfig.secretLength * 2);
     if (secretBuf == NULL || secretAuxBuf == NULL) {
@@ -279,17 +303,16 @@ int main(int argc, char ** argv) {
     }
     checkAndPrintPassphraseStrength();
     if (GlobalConfig.useGpu) {
-        fprintf(stderr, "GPU not supported in this version\n");
-        exit(1);
-        // ID = gpuInit();
+        ID = gpuInit();
     } else {
         ID = cpuInit();
     }
-    // byteMaskToPrintMask(GlobalConfig.mask, printMask);
-    // printf("Using mask %s\n", printMask);
-    // eventChance = findingChance(GlobalConfig.mask);
-    // printf(" %.0f tries for 90%% chance finding a match. Ctrl + C to cancel.\n", estimate90percent(eventChance));
+    byteMaskToPrintMask(GlobalConfig.mask, printMask);
+    printf("Using mask %s\n", printMask);
 
+    bson_t *docs[N_BSONS];
+    bson_oid_t oid;
+    int bsonCounter = 0;
     clock_gettime(CLOCK_REALTIME, &tstart);
 #if MDEBUG == 0
     do {
@@ -310,24 +333,21 @@ int main(int argc, char ** argv) {
             }
         }
 #endif
-        // if (GlobalConfig.useGpu) {
-        //     gpuSolver(&secretBuf[GlobalConfig.gpuThreads * ((rounds + 1) % 2)], ID);
-        // } else {
-        //     cpuSolver(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], ID);
-        // }
+        if (GlobalConfig.useGpu) {
+            gpuSolver(&secretBuf[GlobalConfig.gpuThreads * ((rounds + 1) % 2)], ID);
+        } else {
+            cpuSolver(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], ID);
+        }
         if ((rounds % roundsToPrint) == 0) {
             clock_gettime(CLOCK_REALTIME, &tend);
             seconds = (tend.tv_sec - tstart.tv_sec);
             nanos = ((seconds * 1000000000LL) + tend.tv_nsec) - tstart.tv_nsec;
             timeInterval = (double) nanos / 1000000000.0;
             uint64_t currentTries = rounds * GlobalConfig.gpuThreads;
-            // solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], rsAddress);
             printf(
-                "\r %llu tries - %.0f tries/second.",
+                "\r %llu tries - %.0f tries/second..",
                 PRINTF_CAST currentTries,
-                // luckyChance((double)currentTries, eventChance),
                 (double) ((rounds - previousRounds) * GlobalConfig.gpuThreads) / timeInterval
-                // rsAddress
             );
             fflush(stdout);
             clock_gettime(CLOCK_REALTIME, &tstart);
@@ -340,40 +360,55 @@ int main(int argc, char ** argv) {
                 if (roundsToPrint == 0) roundsToPrint++;
             }
             previousRounds = rounds;
+
+            FILE * endFile = fopen("stop.txt", "r");
+            if (endFile) {
+                end = 1;
+                fclose(endFile);
+                printf("\n");
+            }
         }
         for (i = 0; i < GlobalConfig.gpuThreads; i++) {
-            memcpy(
-                currentPassphrase,
-                secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].string + secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset,
-                PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset
-            );
-            currentPassphrase[PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset]='\0';
-            uint64_t newId = solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i], rsAddress);
-            if (GlobalConfig.appendDb == 1) {
-                appendDb(currentPassphrase, rsAddress, newId);
+            if (ID[i] == 1) {
+                memcpy(
+                    currentPassphrase,
+                    secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].string + secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset,
+                    PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset
+                );
+                currentPassphrase[PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset]='\0';
+                uint64_t newId[2];
+                newId[0] = solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i], rsAddress);
+                newId[1] = 0;
+                if (GlobalConfig.appendDb == 1) {
+                    docs[bsonCounter] = bson_new ();
+                    bson_oid_init_from_data(&oid, (uint8_t *) newId);
+                    bson_append_oid (docs[bsonCounter], "_id", 3, &oid);
+                    bson_append_utf8 (docs[bsonCounter], "passphrase", -1, currentPassphrase, -1);
+                    if (++bsonCounter == 256) {
+                        retval = mongoc_collection_insert_many (collection,
+                                        (const bson_t **) docs,
+                                        (uint32_t) N_BSONS,
+                                        NULL,
+                                        NULL,
+                                        &error);
+                        if (!retval) {
+                            printf ("\n");
+                            for (int d=0; d<N_BSONS; d++) {
+                                char *j = bson_as_canonical_extended_json (docs[d], NULL);
+                                fprintf (stderr, "%s\n", j);
+                                bson_free (j);
+                            }
+                            fprintf (stderr, "%s\n", error.message);
+                            end = 1;
+                            break;
+                        }
+                        destroy_all (docs, N_BSONS);
+                        bsonCounter = 0;
+                    }
+                }
             }
-            // if (GlobalConfig.endless == 0) {
-            //     printf(
-            //         "\nPassphrase: '%s' RS: S-%s id: %20llu\n",
-            //         currentPassphrase,
-            //         rsAddress,
-            //         PRINTF_CAST newId
-            //     );
-            //     fflush(stdout);
-            //     end = 1;
-            //     break;
-            // } else {
-            //     printf(
-            //         "\rPassphrase: '%s' RS: S-%s id: %20llu\n",
-            //         currentPassphrase,
-            //         rsAddress,
-            //         PRINTF_CAST newId
-            //     );
-            //     fflush(stdout);
-            //     rounds %= 2;
-            //     previousRounds = rounds;
-            // }
         }
+        
 #if MDEBUG == 0
     } while (end == 0);
 #else
@@ -395,4 +430,13 @@ int main(int argc, char ** argv) {
         );
     }
 #endif
+
+    /*
+     * Release our handles and clean up libmongoc
+     */
+    mongoc_collection_destroy (collection);
+    mongoc_database_destroy (database);
+    mongoc_uri_destroy (uri);
+    mongoc_client_destroy (client);
+    mongoc_cleanup ();
 }
