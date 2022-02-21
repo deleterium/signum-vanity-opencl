@@ -211,7 +211,7 @@ static void destroy_all (bson_t **ptr, int n) {
 #define N_BSONS 256
 
 int main(int argc, char ** argv) {
-    uint8_t * ID;
+    uint64_t * ID;
     struct PASSPHRASE * secretBuf;
     short * secretAuxBuf;
     char printMask[RS_ADDRESS_STRING_SIZE];
@@ -267,12 +267,12 @@ int main(int argc, char ** argv) {
     * Register the application name so we can track it in the profile logs
     * on the server. This can also be done from the URI (see other examples).
     */
-    mongoc_client_set_appname (client, "vanity");
+    mongoc_client_set_appname (client, "vanityPRG");
     /*
     * Get a handle on the database "db_name" and collection "coll_name"
     */
-    database = mongoc_client_get_database (client, "vanityDB");
-    collection = mongoc_client_get_collection (client, "vanityDB", "passphrases");
+    database = mongoc_client_get_database (client, "vanity");
+    collection = mongoc_client_get_collection (client, "vanity", "passphrases");
     /*
     * Do work. This example pings the database, prints the result as JSON and
     * performs an insert
@@ -369,7 +369,7 @@ int main(int argc, char ** argv) {
             }
         }
         for (i = 0; i < GlobalConfig.gpuThreads; i++) {
-            if (ID[i] == 1) {
+            if (ID[i] != 0) {
                 memcpy(
                     currentPassphrase,
                     secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].string + secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset,
@@ -377,7 +377,7 @@ int main(int argc, char ** argv) {
                 );
                 currentPassphrase[PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset]='\0';
                 uint64_t newId[2];
-                newId[0] = solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i], rsAddress);
+                newId[0] = ID[i];
                 newId[1] = 0;
                 if (GlobalConfig.appendDb == 1) {
                     docs[bsonCounter] = bson_new ();
@@ -392,13 +392,17 @@ int main(int argc, char ** argv) {
                                         NULL,
                                         &error);
                         if (!retval) {
-                            printf ("\n");
+                            FILE * foundFile = fopen("collision.txt", "a");
+                            fprintf (foundFile, "%s\n", error.message);
                             for (int d=0; d<N_BSONS; d++) {
                                 char *j = bson_as_canonical_extended_json (docs[d], NULL);
-                                fprintf (stderr, "%s\n", j);
+                                fprintf (foundFile, "%s\n", j);
                                 bson_free (j);
                             }
-                            fprintf (stderr, "%s\n", error.message);
+                            fclose(foundFile);
+                            foundFile = fopen("stop.txt", "a");
+                            fclose(foundFile);
+                            fprintf (stderr, "Found collision. Message:\n%s\n", error.message);
                             end = 1;
                             break;
                         }

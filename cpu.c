@@ -22,9 +22,9 @@ uint64_t hashToId(const uint8_t * pk) {
     return retVal;
 }
 
-uint8_t * cpuInit(void) {
-    uint8_t * resultBuffer;
-    resultBuffer = (uint8_t *) malloc(GlobalConfig.gpuThreads * sizeof(uint8_t));
+uint64_t * cpuInit(void) {
+    uint64_t * resultBuffer;
+    resultBuffer = (uint64_t *) malloc(GlobalConfig.gpuThreads * sizeof(uint64_t));
     if (resultBuffer == NULL) {
         printf("Cannot allocate memory for result buffer\n");
         exit(1);
@@ -51,7 +51,7 @@ uint8_t * cpuInit(void) {
     return resultBuffer;
 }
 
-void cpuSolver(const struct PASSPHRASE * passphraseBatch, uint8_t * foundBatch) {
+void cpuSolver(const struct PASSPHRASE * passphraseBatch, uint64_t * foundBatch) {
     uint8_t publicKey[SHA256_DIGEST_LENGTH];
     uint8_t privateKey[SHA256_DIGEST_LENGTH];
     uint8_t fullId[SHA256_DIGEST_LENGTH];
@@ -68,7 +68,11 @@ void cpuSolver(const struct PASSPHRASE * passphraseBatch, uint8_t * foundBatch) 
         SHA256_Final(fullId, &ctx);
         uint64_t id = hashToId(fullId);
         idToByteAccount(id, rsAccount);
-        foundBatch[i] = matchMask(GlobalConfig.mask, rsAccount);
+        if (matchMask(GlobalConfig.mask, rsAccount)) {
+            foundBatch[i] = id;
+        } else {
+            foundBatch[i] = 0;
+        };
     }
 }
 

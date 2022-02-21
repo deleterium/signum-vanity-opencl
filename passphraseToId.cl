@@ -2348,7 +2348,7 @@ struct PASSPHRASE {
 
 __kernel void process (
     __global struct PASSPHRASE *passphrase,
-    __global uchar *digest2,
+    __global ulong *digest2,
     __global const uchar *dataMask
 ) {
     size_t const thread = get_global_id(0);
@@ -2455,5 +2455,5 @@ __kernel void process (
             }
         }
     }
-    digest2[thread] = 1;
+    digest2[thread] = id;
 }

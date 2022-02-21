@@ -20,17 +20,17 @@ static cl_mem clMemPassphrase, clMemResultMask;
 void load_source();
 void createDevice();
 void createkernel();
-uint8_t * create_clobj();
+uint64_t * create_clobj();
 void check_error(cl_int error, int position);
 
-uint8_t * gpuInit(void) {
+uint64_t * gpuInit(void) {
     load_source();
     createDevice();
     createkernel();
     return create_clobj();
 }
 
-void gpuSolver(struct PASSPHRASE * inputBatch, uint8_t * resultBatch) {
+void gpuSolver(struct PASSPHRASE * inputBatch, uint64_t * resultBatch) {
     static size_t firstRound = 1;
     if (firstRound) {
         ret = clEnqueueWriteBuffer(
@@ -56,7 +56,7 @@ void gpuSolver(struct PASSPHRASE * inputBatch, uint8_t * resultBatch) {
             clMemResult,
             CL_TRUE,
             0,
-            sizeof(cl_uchar) * GlobalConfig.gpuThreads,
+            sizeof(cl_ulong) * GlobalConfig.gpuThreads,
             resultBatch,
             0,
             NULL,
@@ -93,7 +93,7 @@ void gpuSolver(struct PASSPHRASE * inputBatch, uint8_t * resultBatch) {
 
 void load_source() {
     FILE * fp;
-    fp = fopen("passphraseToId.cl", "r");
+    fp = fopen("passphraseToId2.cl", "r");
     if (!fp) {
         fprintf(stderr, "Failed to load kernel file.\n");
         exit(1);
@@ -103,23 +103,23 @@ void load_source() {
     fclose( fp );
 }
 
-uint8_t * create_clobj(void) {
-    uint8_t * resultBuf;
+uint64_t * create_clobj(void) {
+    uint64_t * resultBuf;
     pinnedClMemResult = clCreateBuffer(
         context,
         CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR,
-        sizeof(cl_uchar) * GlobalConfig.gpuThreads,
+        sizeof(cl_ulong) * GlobalConfig.gpuThreads,
         NULL,
         &ret
     );
     check_error(ret, 107);
-    resultBuf = (cl_uchar *) clEnqueueMapBuffer(
+    resultBuf = (cl_ulong *) clEnqueueMapBuffer(
         command_queue,
         pinnedClMemResult,
         CL_TRUE,
         CL_MAP_READ,
         0,
-        sizeof(cl_uchar) * GlobalConfig.gpuThreads,
+        sizeof(cl_ulong) * GlobalConfig.gpuThreads,
         0,
         NULL,
         NULL,
@@ -138,7 +138,7 @@ uint8_t * create_clobj(void) {
     clMemResult = clCreateBuffer(
         context,
         CL_MEM_WRITE_ONLY,
-        sizeof(cl_uchar) * GlobalConfig.gpuThreads,
+        sizeof(cl_ulong) * GlobalConfig.gpuThreads,
         NULL,
         &ret
     );

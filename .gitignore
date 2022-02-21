@@ -6,3 +6,5 @@ x64
 binaries*
 temp
 database.csv
+collision.txt
+stop.txt
