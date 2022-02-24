@@ -1,10 +1,5 @@
-a.out
-vanity
-vanity-debug
 .vs*
 x64
 binaries*
-temp
-database.csv
-collision.txt
-stop.txt
+build
+dist
