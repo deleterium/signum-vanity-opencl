@@ -73,6 +73,7 @@ int argumentsParser(int argc, char **argv) {
     GlobalConfig.charsetLength = strlen(GlobalConfig.charset);
     GlobalConfig.salt[0] = 0;
     GlobalConfig.appendDb = 0;
+    GlobalConfig.searchDb = 0;
     GlobalConfig.useBip39 = 0;
     GlobalConfig.bipWords = &bipWordsEN;
     GlobalConfig.bipOffset = &bipOffsetEN;
@@ -254,12 +255,19 @@ int argumentsParser(int argc, char **argv) {
             GlobalConfig.appendDb = 1;
             continue;
         }
+        if (strcmp(argv[i], "--search-db") == 0) {
+            GlobalConfig.searchDb = 1;
+            continue;
+        }
 
         printf("Unknow command line option: %s\nTry '--help'.\n", argv[i]);
         exit(1);
     }
     if (maskIndex == -1) {
         endProgram("Error: MASK was not specified... Try '--help'.");
+    }
+    if (GlobalConfig.appendDb && GlobalConfig.searchDb) {
+        endProgram("Error: use --apend-db OR --search-db");
     }
     return maskIndex;
 }

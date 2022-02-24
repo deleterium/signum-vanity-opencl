@@ -47,6 +47,8 @@ void initQueryData(void) {
     mongoQuery.oids = bson_new();
     mongoQuery.query = bson_new();
     mongoQuery.inn = bson_new();
+    bson_append_document_begin(mongoQuery.query, "_id", -1, mongoQuery.inn);
+    bson_append_array_begin(mongoQuery.inn, "$in", -1, mongoQuery.oids);
 }
 
 void destroyQueryData(void) {
@@ -140,10 +142,6 @@ int dbInsert(const uint64_t id, const char * currPassphrase) {
                 bson_free (j);
             }
             fclose(foundFile);
-            // Create stop.txt to finish other instances
-            fclose(fopen("stop.txt", "a"));
-            // Alert user
-            fprintf (stdout, "Found collision. Message:\n%s\n", error.message);
             return 1;
         }
     }
@@ -155,10 +153,11 @@ int dbSearch(const uint64_t id, const char * currPassphrase) {
     static int bsonCounter = 0;
     static char field[8];
     static bson_oid_t oid;
-    static int retval = 0;
+    int retval = 0;
 
     sprintf(field, "%d", bsonCounter);
     memcpy(queryData[bsonCounter].oid, &id, sizeof(uint64_t));
+    strcpy(queryData[bsonCounter].passphrase, currPassphrase);
     bson_oid_init_from_data(&oid, (uint8_t *) queryData[bsonCounter].oid);
     bson_append_oid (mongoQuery.oids, field, -1, &oid);
 
@@ -183,8 +182,6 @@ int dbSearch(const uint64_t id, const char * currPassphrase) {
             for (int i = 0; i < INSERT_BATCH_SIZE; i++) {
                 fprintf (foundFile, "%16llx - '%s'\n", PRINTF_CAST queryData[i].oid[0], queryData[i].passphrase);
             }
-            fclose(foundFile);
-            foundFile = fopen("stop.txt", "a");
             fclose(foundFile);
             retval = 1;
         }

@@ -238,7 +238,7 @@ int main(int argc, char ** argv) {
     } else {
         ID = cpuInit();
     }
-    if (GlobalConfig.appendDb) {
+    if (GlobalConfig.appendDb || GlobalConfig.searchDb) {
         if (dbInit()) {
             return EXIT_FAILURE;
         }
@@ -298,7 +298,7 @@ int main(int argc, char ** argv) {
             if (endFile) {
                 end = 1;
                 fclose(endFile);
-                printf("\n");
+                fprintf(stdout, "\nStopped with 'stop.txt'\n");
             }
         }
         for (i = 0; i < GlobalConfig.gpuThreads; i++) {
@@ -312,6 +312,16 @@ int main(int argc, char ** argv) {
                 if (GlobalConfig.appendDb == 1) {
                     if (dbInsert(ID[i], currentPassphrase)) {
                         end = 1;
+                        fprintf(stdout, "\nIt seems we found a collision. Check 'collision.txt' for details.\n");
+                        fclose(fopen("stop.txt", "a"));
+
+                    }
+                }
+                if (GlobalConfig.searchDb == 1) {
+                    if (dbSearch(ID[i], currentPassphrase)) {
+                        end = 1;
+                        fprintf(stdout, "\nIt seems we found a collision. Check 'collision.txt' for details.\n");
+                        fclose(fopen("stop.txt", "a"));
                     }
                 }
             }

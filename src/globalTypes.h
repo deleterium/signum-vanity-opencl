@@ -45,6 +45,7 @@ struct CONFIG {
         useBip39,
         suffix,
         appendDb,
+        searchDb,
         allowInsecure,
         endless;
     uint8_t mask[RS_ADDRESS_BYTE_SIZE];
