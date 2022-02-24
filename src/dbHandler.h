@@ -25,4 +25,14 @@ void dbDestroy(void);
  * @param passphrase Null terminated string.
  * @returns 0 on SUCCESS for insertion or 1 if error/collision.
  */
-int dbInsert(uint64_t id, char * passphrase);
+int dbInsert(const uint64_t id, const char * passphrase);
+
+/**
+ * Collect a record and search collection in batches.
+ * Save details to 'collision.txt' in case of any document is found.
+ * 
+ * @param id Calculated id.
+ * @param currPassphrase Null terminated string.
+ * @return 0 if nothing found or 1 if collision
+ */
+int dbSearch(const uint64_t id, const char * currPassphrase);
