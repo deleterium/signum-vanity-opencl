@@ -95,12 +95,18 @@ void load_source() {
     FILE * fp;
     fp = fopen("passphraseToId2.cl", "r");
     if (!fp) {
-        fprintf(stderr, "Failed to load kernel file.\n");
+        fprintf(stderr, "Failed to load kernel file 'passphraseToId.cl'.\n");
         exit(1);
     }
-    source_str = (char*)malloc(MAX_SOURCE_SIZE);
-    source_size = fread(source_str, 1, MAX_SOURCE_SIZE, fp);
-    fclose( fp );
+    fseek(fp, 0L, SEEK_END);
+    source_size = ftell(fp);
+    fseek(fp, 0L, SEEK_SET);
+    source_str = (char*)malloc(source_size * sizeof(char));
+    if (fread(source_str, sizeof(char), source_size, fp) != source_size) {
+        fprintf(stderr, "Failed to read kernel file 'passphraseToId.cl'.\n");
+        exit(1);
+    }
+    fclose(fp);
 }
 
 uint64_t * create_clobj(void) {

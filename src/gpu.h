@@ -9,8 +9,6 @@
 #include <CL/cl.h>
 #endif
 
-#define MAX_SOURCE_SIZE 0x10000000
-
 /** Initializes the GPU and returns a pointer for the allocate memory for resultBuffer */
 uint64_t * gpuInit(void);
 
