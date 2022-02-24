@@ -1,8 +1,5 @@
-a.out
-vanity
-vanity-debug
 .vs*
 x64
 binaries*
-temp
-database.csv
+build
+dist

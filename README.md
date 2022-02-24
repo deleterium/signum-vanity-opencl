@@ -67,7 +67,8 @@ Mask:
 ## Linux
 * Dependencies: build-essential, OpenSSL and OpenCL driver installed for your graphics card
 * Clone repository
-* Compile `gcc -o vanity main.c cpu.c gpu.c ReedSolomon.c ed25519-donna/ed25519.c argumentsParser.c -m64 -lcrypto -lOpenCL -lm -O2 -Wextra`
+* Compile `make`
+* Package will be avaliable at `dist` folder.
 
 ## Windows
 * Dependencies: (Visual Studio Community Edition)[https://visualstudio.microsoft.com/vs/community/], (OpenSSL library)[https://slproweb.com/products/Win32OpenSSL.html] and OpenCL SDK for your graphics card: (AMD)[https://github.com/GPUOpen-LibrariesAndSDKs/OCL-SDK] (Compilation not tested on NVIDIA or Intel graphics)
