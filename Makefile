@@ -5,7 +5,7 @@ MONGOC_LIBS = -lmongoc-1.0 -lbson-1.0
 all: compile src/main.c
 	gcc -o build/vanity src/main.c build/*.o $(MY_CFLAGS) -lm -lcrypto -lOpenCL $(MONGOC_LIBS) && \
 	rm -f dist/* && \
-	cp build/vanity resources/*.cl *.md dist/
+	cp build/vanity resources/* *.md dist/
 
 compile: build/ed25519-donna.o build/cpu.o build/gpu.o \
 		build/ReedSolomon.o build/argumentsParser.o build/dbHandler.o
