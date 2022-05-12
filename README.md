@@ -34,7 +34,7 @@ Options:
   --gpu-platform N   Select GPU from platorm N. Default: 0
   --gpu-device N     Select GPU device N. Default: 0
   --gpu-threads N    Send a batch of N threads. Default: 16384
-  --gpu-work-size N  Select N concurrent works. Default: 64
+  --gpu-work-size N  Select N concurrent works. Default: Max available
   --endless          Never stop finding passphrases
   --use-charset ABC  Generate passphrase only containing the ABC chars
   --use-bip39        Generate passphrase with 12 words from BIP-39 list

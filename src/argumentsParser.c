@@ -22,7 +22,7 @@ Options:\n\
   --gpu-platform N   Select GPU from platorm N. Default: 0\n\
   --gpu-device N     Select GPU device N. Default: 0\n\
   --gpu-threads N    Send a batch of N threads. Default: 16384\n\
-  --gpu-work-size N  Select N concurrent works. Default: 64\n\
+  --gpu-work-size N  Select N concurrent works. Default: Max available\n\
   --endless          Never stop finding passphrases\n\
   --use-charset ABC  Generate passphrase only containing the ABC chars\n\
   --use-bip39        Generate passphrase with 12 words from BIP-39 list\n\
@@ -55,7 +55,7 @@ int argumentsParser(int argc, char **argv) {
     GlobalConfig.secretLength = DEFAULT_PASS_LENGTH;
     GlobalConfig.useGpu = 1;
     GlobalConfig.gpuThreads = 128 * 128;
-    GlobalConfig.gpuWorkSize = 64;
+    GlobalConfig.gpuWorkSize = 0;
     GlobalConfig.gpuPlatform = 0;
     GlobalConfig.gpuDevice = 0;
     GlobalConfig.endless = 0;

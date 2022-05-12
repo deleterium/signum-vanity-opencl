@@ -196,7 +196,7 @@ void createDevice() {
     info = (char*) malloc(infoSize);
     ret = clGetPlatformInfo(platforms[GlobalConfig.gpuPlatform], CL_PLATFORM_NAME, infoSize, info, NULL);
     check_error(ret, 143);
-    printf("    Platform name: %s\n", info);
+    printf("    Platform name...........: %s\n", info);
     free(info);
 
     // get devices count for selected platform
@@ -217,7 +217,7 @@ void createDevice() {
     info = (char*) malloc(infoSize);
     ret = clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DEVICE_NAME, infoSize, info, NULL);
     check_error(ret, 147);
-    printf("    Device: %s\n", info);
+    printf("    Device..................: %s\n", info);
     free(info);
 
     // print hardware device version
@@ -226,7 +226,7 @@ void createDevice() {
     info = (char*) malloc(infoSize);
     ret = clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DEVICE_VERSION, infoSize, info, NULL);
     check_error(ret, 149);
-    printf("    Hardware version: %s\n", info);
+    printf("    Hardware version........: %s\n", info);
     free(info);
 
     // print software driver version
@@ -235,7 +235,7 @@ void createDevice() {
     info = (char*) malloc(infoSize);
     ret = clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DRIVER_VERSION, infoSize, info, NULL);
     check_error(ret, 151);
-    printf("    Software version: %s\n", info);
+    printf("    Software version........: %s\n", info);
     free(info);
 
     // print c version supported by compiler for device
@@ -244,18 +244,27 @@ void createDevice() {
     info = (char*) malloc(infoSize);
     ret = clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DEVICE_OPENCL_C_VERSION, infoSize, info, NULL);
     check_error(ret, 153);
-    printf("    OpenCL C version: %s\n", info);
+    printf("    OpenCL C version........: %s\n", info);
     free(info);
 
     // print parallel compute units
     ret = clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DEVICE_MAX_COMPUTE_UNITS,
             sizeof(maxComputeUnits), &maxComputeUnits, NULL);
     check_error(ret, 154);
-    printf("    Parallel compute units: %d\n", maxComputeUnits);
+    printf("    Parallel compute units..: %d\n", maxComputeUnits);
 
     // Create context for desired device
     context = clCreateContext( NULL, 1, &gpuDevices[GlobalConfig.gpuDevice], NULL, NULL, &ret);
     check_error(ret, 142);
+
+    // Get the device MAX_WORK_GROUP_SIZE
+    ret = clGetDeviceInfo(gpuDevices[GlobalConfig.gpuDevice], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(infoSize), &infoSize, NULL);
+    check_error(ret, 155);
+    printf("    Max Work Group Size.....: %zu\n", infoSize);
+    // Set the defaults (could not be set on argumentsParser, so setting it now)
+    if (GlobalConfig.gpuWorkSize == 0) {
+        GlobalConfig.gpuWorkSize = infoSize;
+    }
 }
 
 void createkernel() {
