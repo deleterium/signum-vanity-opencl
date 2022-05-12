@@ -1,7 +1,26 @@
 MY_CFLAGS = -O2 -Wextra
 
-all: compile src/main.c
-	gcc -o build/vanity src/main.c build/*.o $(MY_CFLAGS) -lm -lcrypto -lOpenCL && \
+# Detect Mac Os operating system and change option for opencl
+ifeq ($(OS),Windows_NT)
+    OPENCL_LIB = -lOpenCL
+else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Darwin)
+        OPENCL_LIB = -framework OpenCL
+	else
+	  	OPENCL_LIB = -lOpenCL
+    endif
+endif
+
+.PHONY: all clean pre-build
+
+all: pre-build main-build
+
+pre-build:
+	mkdir -p {build,dist}
+
+main-build: compile src/main.c
+	gcc -o build/vanity src/main.c build/*.o $(MY_CFLAGS) -lm -lcrypto $(OPENCL_LIB) && \
 	rm -f dist/* && \
 	cp build/vanity resources/* *.md dist/
 

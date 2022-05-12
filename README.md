@@ -18,6 +18,9 @@ Hashing at 2M tries per second on RX470. This is 33 times faster than using cpu,
 * Test it running on cpu: `vanity --cpu A?A`
 * Play with command line options to maximize speed
 
+## Mac OS
+I do not have a hardware to compile the binary, but the compilation process is straight forward. Check instructions on **Compilation details**.
+
 # Help
 ```
 Passphrase generator for vanity addresses on Signum cryptocurrency.
@@ -68,6 +71,12 @@ Mask:
 * Dependencies: build-essential, OpenSSL and OpenCL driver installed for your graphics card
 * Clone repository
 * Compile `make`
+* Package will be avaliable at `dist` folder.
+
+## Mac OS
+* At the Releases page, download the source code and unzip to a folder
+* Open a terminal and change to the respective folder.
+* Run the command `make`
 * Package will be avaliable at `dist` folder.
 
 ## Windows
