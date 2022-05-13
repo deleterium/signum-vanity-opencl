@@ -43,7 +43,7 @@ void seedRand(short * buffer, uint64_t length) {
 
 void loadBipFile(void) {
     FILE * fp;
-    fp = fopen(GlobalConfig.bipFilename, "r");
+    fp = fopen(GlobalConfig.bipFilename, "rb");
     if (!fp) {
         fprintf(stderr, "Failed to load bip words file '%s'.\n", GlobalConfig.bipFilename);
         exit(1);

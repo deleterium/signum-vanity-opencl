@@ -125,33 +125,34 @@
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="argumentsParser.c" />
-    <ClCompile Include="cpu.c" />
-    <ClCompile Include="ed25519-donna\ed25519.c" />
-    <ClCompile Include="gpu.c" />
-    <ClCompile Include="main.c" />
-    <ClCompile Include="ReedSolomon.c" />
+    <ClCompile Include="src\argumentsParser.c" />
+    <ClCompile Include="src\cpu.c" />
+    <ClCompile Include="src\ed25519-donna\ed25519.c" />
+    <ClCompile Include="src\gpu.c" />
+    <ClCompile Include="src\main.c" />
+    <ClCompile Include="src\ReedSolomon.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="argumentsParser.h" />
-    <ClInclude Include="cpu.h" />
-    <ClInclude Include="ed25519-donna\ed25519.h" />
-    <ClInclude Include="ed25519-donna\modm-donna-32bit.h" />
-    <ClInclude Include="ed25519-donna\modm-donna-64bit.h" />
-    <ClInclude Include="ed25519-donna\regression.h" />
-    <ClInclude Include="globalTypes.h" />
-    <ClInclude Include="gpu.h" />
-    <ClInclude Include="ReedSolomon.h" />
+    <ClInclude Include="src\argumentsParser.h" />
+    <ClInclude Include="src\cpu.h" />
+    <ClInclude Include="src\ed25519-donna\ed25519.h" />
+    <ClInclude Include="src\ed25519-donna\modm-donna-32bit.h" />
+    <ClInclude Include="src\ed25519-donna\modm-donna-64bit.h" />
+    <ClInclude Include="src\ed25519-donna\regression.h" />
+    <ClInclude Include="src\globalTypes.h" />
+    <ClInclude Include="src\gpu.h" />
+    <ClInclude Include="src\ReedSolomon.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="passphraseToId.cl" />
-    <None Include="passphraseToId2.cl" />
+    <None Include="resources\passphraseToId.cl" />
+    <None Include="resources\passphraseToId2.cl" />
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="bip39WordsEN.txt" />
-    <Text Include="bip39WordsES.txt" />
-    <Text Include="bip39WordsFR.txt" />
+    <Text Include="resources\bip39WordsEN.txt" />
+    <Text Include="resources\bip39WordsES.txt" />
+    <Text Include="resources\bip39WordsFR.txt" />
+    <Text Include="resources\bip39WordsPT.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

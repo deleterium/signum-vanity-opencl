@@ -93,7 +93,7 @@ void gpuSolver(struct PASSPHRASE * inputBatch, uint8_t * resultBatch) {
 
 void load_source() {
     FILE * fp;
-    fp = fopen("passphraseToId.cl", "r");
+    fp = fopen("passphraseToId.cl", "rb");
     if (!fp) {
         fprintf(stderr, "Failed to load kernel file 'passphraseToId.cl'.\n");
         exit(1);
