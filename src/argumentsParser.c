@@ -5,17 +5,8 @@
 #include "globalTypes.h"
 
 #include "argumentsParser.h"
-#include "bip39WordsEN.h"
-#include "bip39WordsPT.h"
-#include "bip39WordsES.h"
 
 extern struct CONFIG GlobalConfig;
-extern const char bipWordsEN[2048][16];
-extern const char bipWordsPT[2048][16];
-extern const char bipWordsES[2048][16];
-extern const char bipOffsetEN[2048];
-extern const char bipOffsetPT[2048];
-extern const char bipOffsetES[2048];
 
 const char helpString[] = "Passphrase generator for vanity addresses on Signum cryptocurrency.\n\
 \n\
@@ -31,7 +22,7 @@ Options:\n\
   --gpu-platform N   Select GPU from platorm N. Default: 0\n\
   --gpu-device N     Select GPU device N. Default: 0\n\
   --gpu-threads N    Send a batch of N threads. Default: 16384\n\
-  --gpu-work-size N  Select N concurrent works. Default: 64\n\
+  --gpu-work-size N  Select N concurrent works. Default: Max available\n\
   --endless          Never stop finding passphrases\n\
   --use-charset ABC  Generate passphrase only containing the ABC chars\n\
   --use-bip39        Generate passphrase with 12 words from BIP-39 list\n\
@@ -61,10 +52,10 @@ void endProgram(const char * errorString) {
 int argumentsParser(int argc, char **argv) {
     int maskIndex = -1;
     //Default values:
-    GlobalConfig.secretLength = 64;
+    GlobalConfig.secretLength = DEFAULT_PASS_LENGTH;
     GlobalConfig.useGpu = 1;
     GlobalConfig.gpuThreads = 128 * 128;
-    GlobalConfig.gpuWorkSize = 64;
+    GlobalConfig.gpuWorkSize = 0;
     GlobalConfig.gpuPlatform = 0;
     GlobalConfig.gpuDevice = 0;
     GlobalConfig.endless = 0;
@@ -74,8 +65,7 @@ int argumentsParser(int argc, char **argv) {
     GlobalConfig.salt[0] = 0;
     GlobalConfig.appendDb = 0;
     GlobalConfig.useBip39 = 0;
-    GlobalConfig.bipWords = &bipWordsEN;
-    GlobalConfig.bipOffset = &bipOffsetEN;
+    strcpy(GlobalConfig.bipFilename, "bip39WordsEN.txt");
     GlobalConfig.allowInsecure = 0;
 
 
@@ -107,11 +97,6 @@ int argumentsParser(int argc, char **argv) {
                 endProgram("Expecting value for pass-length.");
             }
             GlobalConfig.secretLength = strtol(argv[i], NULL, 10);
-            if (GlobalConfig.useBip39) {
-                if (GlobalConfig.secretLength > 12) {
-                    endProgram("Option --pass-length conflicts with --use-bip39.");
-                }
-            }
             if (GlobalConfig.secretLength >= PASSPHRASE_MAX_LENGTH){
                 endProgram("Passphrase length exceeded maximum value.\nTry '--help'.");
             }
@@ -184,7 +169,7 @@ int argumentsParser(int argc, char **argv) {
             if (i >= argc) {
                 endProgram("Expecting value for salt.");
             }
-            if (strlen(argv[i]) >= PASSPHRASE_MAX_LENGTH - BIP_MAX_LENGTH) {
+            if (strlen(argv[i]) >= SALT_MAX_LENGTH) {
                 endProgram("Salt is too long.");
             }
             strcpy(GlobalConfig.salt, argv[i]);
@@ -200,22 +185,11 @@ int argumentsParser(int argc, char **argv) {
             if (i >= argc) {
                 endProgram("Expecting value for language.");
             }
-            if (strcmp(argv[i], "EN") == 0) {
-                GlobalConfig.bipWords = &bipWordsEN;
-                GlobalConfig.bipOffset = &bipOffsetEN;
-                continue;
+            if (strlen(argv[i]) != 2) {
+                endProgram("Language must have 2 chars.");
             }
-            if (strcmp(argv[i], "PT") == 0) {
-                GlobalConfig.bipWords = &bipWordsPT;
-                GlobalConfig.bipOffset = &bipOffsetPT;
-                continue;
-            }
-            if (strcmp(argv[i], "ES") == 0) {
-                GlobalConfig.bipWords = &bipWordsES;
-                GlobalConfig.bipOffset = &bipOffsetES;
-                continue;
-            }
-            endProgram("Unknown language for dictionary.");
+            sprintf(GlobalConfig.bipFilename, "bip39Words%s.txt", argv[i]);
+            continue;
         }
         if (strcmp(argv[i], "--help") == 0) {
             printf("%s\n", helpString);
@@ -236,10 +210,9 @@ int argumentsParser(int argc, char **argv) {
         }
         if (strcmp(argv[i], "--use-bip39") == 0) {
             GlobalConfig.useBip39 = 1;
-            if (GlobalConfig.secretLength > 12) {
+            if (GlobalConfig.secretLength == DEFAULT_PASS_LENGTH) {
                 GlobalConfig.secretLength = 12;
             }
-            GlobalConfig.charsetLength = 2048;
             continue;
         }
         if (strcmp(argv[i], "--endless") == 0) {

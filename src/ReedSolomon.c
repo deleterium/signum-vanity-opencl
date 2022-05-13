@@ -162,6 +162,16 @@ void maskToByteMask(const char * charMask, uint8_t * byteMask, int32_t isSuffix)
         printf("Error parsing mask. Match previous not allowed on first position\n");
         exit(1);
     }
+    if (byteMask[13] == MASK_MATCH_PREVIOUS) {
+        if (byteMask[12] >= MASK_MATCH_J && byteMask[12] <= MASK_MATCH_Z) {
+            printf("Error parsing mask. Match previous on position 14 is not allowed if position 13 is not in this set: [JKLMNPQRSTUVWXYZ]\n");
+            exit(1);
+        }
+        if (byteMask[12] == MASK_MATCH_PREVIOUS) {
+            printf("Error parsing mask. Match previous on position 14 is not allowed if position 13 is also match previous\n");
+            exit(1);
+        }
+    }
 }
 
 uint8_t matchMask(const uint8_t * byteMask, const uint8_t * account) {

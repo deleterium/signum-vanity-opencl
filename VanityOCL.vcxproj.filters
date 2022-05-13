@@ -15,72 +15,77 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="cpu.c">
+    <ClCompile Include="src\cpu.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="gpu.c">
+    <ClCompile Include="src\gpu.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="main.c">
+    <ClCompile Include="src\main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ReedSolomon.c">
+    <ClCompile Include="src\ReedSolomon.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ed25519-donna\ed25519.c">
+    <ClCompile Include="src\ed25519-donna\ed25519.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="argumentsParser.c">
+    <ClCompile Include="src\argumentsParser.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="argumentsParser.h">
+    <ClInclude Include="src\argumentsParser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="bip39WordsEN.h">
+    <ClInclude Include="src\cpu.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="bip39WordsES.h">
+    <ClInclude Include="src\globalTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="bip39WordsPT.h">
+    <ClInclude Include="src\gpu.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="cpu.h">
+    <ClInclude Include="src\ReedSolomon.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="globalTypes.h">
+    <ClInclude Include="src\ed25519-donna\ed25519.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="gpu.h">
+    <ClInclude Include="src\ed25519-donna\modm-donna-32bit.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ReedSolomon.h">
+    <ClInclude Include="src\ed25519-donna\modm-donna-64bit.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ed25519-donna\ed25519.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ed25519-donna\modm-donna-32bit.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ed25519-donna\modm-donna-64bit.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ed25519-donna\regression.h">
+    <ClInclude Include="src\ed25519-donna\regression.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="passphraseToId.cl">
+    <None Include="resources\passphraseToId.cl">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="passphraseToId2.cl">
+    <None Include="resources\passphraseToId2.cl">
       <Filter>Resource Files</Filter>
     </None>
     <None Include="README.md">
       <Filter>Resource Files</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="resources\bip39WordsEN.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="resources\bip39WordsES.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="resources\bip39WordsFR.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="resources\bip39WordsPT.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
 </Project>

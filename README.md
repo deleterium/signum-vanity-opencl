@@ -18,6 +18,9 @@ Hashing at 2M tries per second on RX470. This is 33 times faster than using cpu,
 * Test it running on cpu: `vanity --cpu A?A`
 * Play with command line options to maximize speed
 
+## Mac OS
+I do not have a hardware to compile the binary, but the compilation process is straight forward. Check instructions on **Compilation details**.
+
 # Help
 ```
 Passphrase generator for vanity addresses on Signum cryptocurrency.
@@ -34,7 +37,7 @@ Options:
   --gpu-platform N   Select GPU from platorm N. Default: 0
   --gpu-device N     Select GPU device N. Default: 0
   --gpu-threads N    Send a batch of N threads. Default: 16384
-  --gpu-work-size N  Select N concurrent works. Default: 64
+  --gpu-work-size N  Select N concurrent works. Default: Max available
   --endless          Never stop finding passphrases
   --use-charset ABC  Generate passphrase only containing the ABC chars
   --use-bip39        Generate passphrase with 12 words from BIP-39 list
@@ -67,7 +70,14 @@ Mask:
 ## Linux
 * Dependencies: build-essential, OpenSSL and OpenCL driver installed for your graphics card
 * Clone repository
-* Compile `gcc -o vanity main.c cpu.c gpu.c ReedSolomon.c ed25519-donna/ed25519.c argumentsParser.c -m64 -lcrypto -lOpenCL -lm -O2 -Wextra`
+* Compile `make`
+* Package will be avaliable at `dist` folder.
+
+## Mac OS
+* At the Releases page, download the source code and unzip to a folder
+* Open a terminal and change to the respective folder.
+* Run the command `make`
+* Package will be avaliable at `dist` folder.
 
 ## Windows
 * Dependencies: (Visual Studio Community Edition)[https://visualstudio.microsoft.com/vs/community/], (OpenSSL library)[https://slproweb.com/products/Win32OpenSSL.html] and OpenCL SDK for your graphics card: (AMD)[https://github.com/GPUOpen-LibrariesAndSDKs/OCL-SDK] (Compilation not tested on NVIDIA or Intel graphics)
