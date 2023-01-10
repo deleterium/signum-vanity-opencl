@@ -282,10 +282,20 @@ void createkernel() {
         program,
         1,
         &gpuDevices[GlobalConfig.gpuDevice],
-        NULL,
+        " -cl-std=CL1.2 -Werror ",
         NULL,
         NULL
     );
+    if (ret != CL_SUCCESS) {
+        printf("Failed.\n");
+        size_t len = 0;
+        cl_int ret2 = CL_SUCCESS;
+        ret2 = clGetProgramBuildInfo(program, gpuDevices[GlobalConfig.gpuDevice], CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
+        char *buffer = calloc(len, sizeof(char));
+        ret2 = clGetProgramBuildInfo(program, gpuDevices[GlobalConfig.gpuDevice], CL_PROGRAM_BUILD_LOG, len, buffer, NULL);
+        printf("%s\n", buffer);
+        exit(1);
+    }
     check_error(ret, 210);
     printf("Done!\n");
     fflush(stdout);

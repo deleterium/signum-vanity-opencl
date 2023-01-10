@@ -1331,7 +1331,7 @@ curve25519_neg(bignum25519 out, const bignum25519 a) {
 /* out = a * b */
 #define curve25519_mul_noinline curve25519_mul
 static void
-curve25519_mul(bignum25519 out, const bignum25519 a, const bignum25519 b) {
+curve25519_mul(__private bignum25519 out, __private const bignum25519 a, __private const bignum25519 b) {
 	uint32_t r0,r1,r2,r3,r4,r5,r6,r7,r8,r9;
 	uint32_t s0,s1,s2,s3,s4,s5,s6,s7,s8,s9;
 	uint64_t m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,c;
@@ -1860,14 +1860,14 @@ curve25519_swap_conditional(bignum25519 a, bignum25519 b, uint32_t iswap) {
 */
 
 __inline void
-ge25519_p1p1_to_partial(ge25519 *r, const ge25519_p1p1 *p) {
+ge25519_p1p1_to_partial(__private ge25519 *r,__private const ge25519_p1p1 *p) {
 	curve25519_mul(r->x, p->x, p->t);
 	curve25519_mul(r->y, p->y, p->z);
 	curve25519_mul(r->z, p->z, p->t); 
 }
 
 __inline void
-ge25519_p1p1_to_full(ge25519 *r, const ge25519_p1p1 *p) {
+ge25519_p1p1_to_full(__private ge25519 *r, __private const ge25519_p1p1 *p) {
 	curve25519_mul(r->x, p->x, p->t);
 	curve25519_mul(r->y, p->y, p->z);
 	curve25519_mul(r->z, p->z, p->t); 
@@ -1875,7 +1875,7 @@ ge25519_p1p1_to_full(ge25519 *r, const ge25519_p1p1 *p) {
 }
 
 static void
-ge25519_full_to_pniels(ge25519_pniels *p, const ge25519 *r) {
+ge25519_full_to_pniels(__private ge25519_pniels *p, __private const ge25519 *r) {
 	curve25519_sub(p->ysubx, r->y, r->x);
 	curve25519_add(p->xaddy, r->y, r->x);
 	curve25519_copy(p->z, r->z);
@@ -1887,7 +1887,7 @@ ge25519_full_to_pniels(ge25519_pniels *p, const ge25519 *r) {
 */
 
 static void
-ge25519_add_p1p1(ge25519_p1p1 *r, const ge25519 *p, const ge25519 *q) {
+ge25519_add_p1p1(__private ge25519_p1p1 *r, __private const ge25519 *p, __private const ge25519 *q) {
 	bignum25519 a,b,c,d,t,u;
 
 	curve25519_sub(a, p->y, p->x);
@@ -1908,7 +1908,7 @@ ge25519_add_p1p1(ge25519_p1p1 *r, const ge25519 *p, const ge25519 *q) {
 
 
 static void
-ge25519_double_p1p1(ge25519_p1p1 *r, const ge25519 *p) {
+ge25519_double_p1p1(__private ge25519_p1p1 *r, __private const ge25519 *p) {
 	bignum25519 a,b,c;
 
 	curve25519_square(a, p->x);
@@ -1924,9 +1924,9 @@ ge25519_double_p1p1(ge25519_p1p1 *r, const ge25519 *p) {
 }
 
 static void
-ge25519_nielsadd2_p1p1(ge25519_p1p1 *r, const ge25519 *p, const ge25519_niels *q, unsigned char signbit) {
-	const bignum25519 *qb = (const bignum25519 *)q;
-	bignum25519 *rb = (bignum25519 *)r;
+ge25519_nielsadd2_p1p1(__private ge25519_p1p1 *r,__private  const ge25519 *p, __private const ge25519_niels *q, unsigned char signbit) {
+	__private const bignum25519 *qb = (__private const bignum25519 *)q;
+	__private bignum25519 *rb = (__private bignum25519 *)r;
 	bignum25519 a,b,c;
 
 	curve25519_sub(a, p->y, p->x);
@@ -1943,9 +1943,9 @@ ge25519_nielsadd2_p1p1(ge25519_p1p1 *r, const ge25519 *p, const ge25519_niels *q
 }
 
 static void
-ge25519_pnielsadd_p1p1(ge25519_p1p1 *r, const ge25519 *p, const ge25519_pniels *q, unsigned char signbit) {
-	const bignum25519 *qb = (const bignum25519 *)q;
-	bignum25519 *rb = (bignum25519 *)r;
+ge25519_pnielsadd_p1p1(__private ge25519_p1p1 *r, __private const ge25519 *p, __private const ge25519_pniels *q, unsigned char signbit) {
+	__private const bignum25519 *qb = (__private const bignum25519 *)q;
+	__private bignum25519 *rb = (__private bignum25519 *)r;
 	bignum25519 a,b,c;
 
 	curve25519_sub(a, p->y, p->x);
@@ -1963,28 +1963,28 @@ ge25519_pnielsadd_p1p1(ge25519_p1p1 *r, const ge25519 *p, const ge25519_pniels *
 }
 
 static void
-ge25519_double_partial(ge25519 *r, const ge25519 *p) {
+ge25519_double_partial(__private ge25519 *r, __private const ge25519 *p) {
 	ge25519_p1p1 t;
 	ge25519_double_p1p1(&t, p);
 	ge25519_p1p1_to_partial(r, &t);
 }
 
 static void
-ge25519_double(ge25519 *r, const ge25519 *p) {
+ge25519_double(__private ge25519 *r, __private const ge25519 *p) {
 	ge25519_p1p1 t;
 	ge25519_double_p1p1(&t, p);
 	ge25519_p1p1_to_full(r, &t);
 }
 
 static void
-ge25519_add(ge25519 *r, const ge25519 *p,  const ge25519 *q) {
+ge25519_add(__private ge25519 *r, __private const ge25519 *p, __private const ge25519 *q) {
 	ge25519_p1p1 t;
 	ge25519_add_p1p1(&t, p, q);
 	ge25519_p1p1_to_full(r, &t);
 }
 
 static void
-ge25519_nielsadd2(ge25519 *r, const ge25519_niels *q) {
+ge25519_nielsadd2(__private ge25519 *r, __private const ge25519_niels *q) {
 	bignum25519 a,b,c,e,f,g,h;
 
 	curve25519_sub(a, r->y, r->x);
@@ -2004,7 +2004,7 @@ ge25519_nielsadd2(ge25519 *r, const ge25519_niels *q) {
 }
 
 static void
-ge25519_pnielsadd(ge25519_pniels *r, const ge25519 *p, const ge25519_pniels *q) {
+ge25519_pnielsadd(__private ge25519_pniels *r, __private const ge25519 *p, __private const ge25519_pniels *q) {
 	bignum25519 a,b,c,x,y,z,t;
 
 	curve25519_sub(a, p->y, p->x);
@@ -2095,7 +2095,7 @@ curve25519_pow_two252m3(bignum25519 two252m3, const bignum25519 z) {
 */
 
 static void
-ge25519_pack(unsigned char r[32], const ge25519 *p) {
+ge25519_pack(unsigned char r[32], __private const ge25519 *p) {
 	bignum25519 tx, ty, zi;
 	unsigned char parity[32];
 	curve25519_recip(zi, p->z);
@@ -2118,7 +2118,7 @@ ed25519_verify(const unsigned char *x, const unsigned char *y, size_t len) {
 }
 
 static int
-ge25519_unpack_vartime(ge25519 *r, const unsigned char p[32]) {
+ge25519_unpack_vartime(__private ge25519 *r, const unsigned char p[32]) {
 	const unsigned char zero[32] = {0};
 	const bignum25519 one = {1};
 	unsigned char parity = p[31] >> 7;
@@ -2187,7 +2187,7 @@ ge25519_windowb_equal(uint32_t b, uint32_t c) {
 
 // modified to remove basepoint table argument
 static void
-ge25519_scalarmult_base_choose_niels(ge25519_niels *t, uint32_t pos, signed char b) {
+ge25519_scalarmult_base_choose_niels(__private ge25519_niels *t, uint32_t pos, signed char b) {
 	bignum25519 neg;
 	uint32_t sign = (uint32_t)((unsigned char)b >> 7);
 	uint32_t mask = ~(sign - 1);
@@ -2220,7 +2220,7 @@ ge25519_scalarmult_base_choose_niels(ge25519_niels *t, uint32_t pos, signed char
 // modified to remove basepoint table argument
 // and to work around the missing memset function
 static void
-ge25519_scalarmult_base_niels(ge25519 *r, const bignum256modm s) {
+ge25519_scalarmult_base_niels(__private ge25519 *r, const bignum256modm s) {
 	signed char b[64];
 	uint32_t i;
 	ge25519_niels t;
