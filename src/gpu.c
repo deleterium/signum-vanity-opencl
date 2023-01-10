@@ -208,7 +208,7 @@ void createDevice() {
     }
     printf("Details for device %llu:\n", PRINTF_CAST GlobalConfig.gpuDevice);
     gpuDevices = (cl_device_id*) malloc(sizeof(cl_device_id) * deviceCount);
-    ret = clGetDeviceIDs(platforms[GlobalConfig.gpuDevice], CL_DEVICE_TYPE_ALL, deviceCount, gpuDevices, NULL);
+    ret = clGetDeviceIDs(platforms[GlobalConfig.gpuPlatform], CL_DEVICE_TYPE_ALL, deviceCount, gpuDevices, NULL);
     check_error(ret, 145);
 
     // get and print selected device name
