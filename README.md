@@ -1,8 +1,16 @@
 # Signum vanity opencl
 Use GPU or CPU to find a Signum address that matches your desire.
 
-# Status
-Hashing at 2M tries per second on RX470. This is 33 times faster than using cpu, or 180x faster than usign previous java solutions (on my setup)! Optimized code in C works at 60k tries per second, 5.5 times faster than java vanity.
+When finding a new account address, you must activate it on first time that you send a transaction. It can be done using *extended address* `S-____-____-____-_____-____________________________________` or using the [Signum account activator](https://signum-account-activator.vercel.app/). After this process, it will be allowed to use the short address `S-____-____-____-_____` for transactions.
+
+## Status
+Hashing at 2M tries per second on RX470. This is 33 times faster than using cpu, or 180x faster than usign previous java solutions (on my setup)! Optimized code in C works at 60k tries per second, 5.5 times faster than java vanity. Check speeds at [wiki](https://github.com/deleterium/signum-vanity-opencl/wiki) and add your record there.
+
+## Did you like?
+Register your nice adddress at [Hall of RS-Addresses](https://deleterium.info/RSHall/) dApp, or drop me a donation at `S-DKVF-VE8K-KUXB-DELET`.
+
+## Known issues
+Unfortunatelly the program is not running on newer cards shipped with opencl 3.0. Any questions please ask at my [discord channel](https://discord.com/pQHnBRYE5c). 
 
 # Binary package usage
 
@@ -62,8 +70,6 @@ Mask:
 * Define a custom charset, custom length and your salt for paranoid levels of security
 * Use gpu-work-size as multiple of you graphics card compute units, and gpu-threads to multiple of gpu-work-size for best speed.
 * Try to rename the .cl file and swap with the second implementation. It can be 5% faster.
-* More support on my discord channel: [SmartC Channel](https://discord.gg/pQHnBRYE5c).
-* Drop some donation: S-DKVF-VE8K-KUXB-DELET.
 
 # Compilation details
 
@@ -80,14 +86,14 @@ Mask:
 * Package will be avaliable at `dist` folder.
 
 ## Windows
-* Dependencies: (Visual Studio Community Edition)[https://visualstudio.microsoft.com/vs/community/], (OpenSSL library)[https://slproweb.com/products/Win32OpenSSL.html] and OpenCL SDK for your graphics card: (AMD)[https://github.com/GPUOpen-LibrariesAndSDKs/OCL-SDK] (Compilation not tested on NVIDIA or Intel graphics)
+* Dependencies: [Visual Studio Community Edition](https://visualstudio.microsoft.com/vs/community/), [OpenSSL library version 1.3](https://slproweb.com/products/Win32OpenSSL.html) and OpenCL SDK for your graphics card: [AMD](https://github.com/GPUOpen-LibrariesAndSDKs/OCL-SDK) or [nVidia](https://developer.nvidia.com/opencl)
 * Clone repository
 * Open the solution
 * Adjust headers/libraries path according to the installed dependencies folders `include` and `lib`.
 * Compile solution
 
 ## Resource files
-* Remember to include `passphraseToId.cl`, `passphraseToId2.cl` and `README.md` with the binary file if redistributing a compiled version.
+* Remember to include `passphraseToId.cl`, `passphraseToId2.cl`, `bip39*.txt` and `README.md` with the binary file if redistributing a compiled version.
 
 # Inspiration
 * https://github.com/PlasmaPower/nano-vanity/ Project that uses also curve25519 for cryptography. It also reaches 2M tries per second (on RX470).
