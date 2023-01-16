@@ -34,6 +34,8 @@
 #define SALT_MAX_LENGTH 21
 #define DEFAULT_PASS_LENGTH 64
 #define BIPWORD_BUFFER_SIZE 16
+#define PK_HEX_LENGTH 65
+#define EXTENDED_PK_LENGTH 51
 
 struct CONFIG {
     uint64_t

@@ -267,7 +267,7 @@ double luckyChance(double numberOfEvents, double findingChance) {
     return (1.0 - pow(1.0 - findingChance,numberOfEvents)) * 100.0;
 }
 
-void appendDb(char *passphrase, char *address, uint64_t id) {
+void appendDb(char *passphrase, char *address, uint64_t id, char *publicKey, char * extendedPK) {
     FILE *database = fopen("database.csv", "a");
     if (database == NULL) {
         printf("Failed operation to open database file.\n");
@@ -275,10 +275,12 @@ void appendDb(char *passphrase, char *address, uint64_t id) {
     }
     fprintf(
         database,
-        "\"%s\",\"%s\",\"%llu\"\n",
+        "\"%s\",\"%s-%s\",\"%llu\",\"%s\"\n",
         passphrase,
         address,
-        PRINTF_CAST id
+        extendedPK,
+        PRINTF_CAST id,
+        publicKey
     );
     fclose(database);
 }
@@ -290,6 +292,8 @@ int main(int argc, char ** argv) {
     char printMask[RS_ADDRESS_STRING_SIZE];
     char rsAddress[RS_ADDRESS_STRING_SIZE];
     char currentPassphrase[PASSPHRASE_MAX_LENGTH];
+    char publicKeyHex[PK_HEX_LENGTH];
+    char extendedPublicKey[EXTENDED_PK_LENGTH];
     struct timespec tstart, tend;
     int64_t seconds, nanos;
     double eventChance;
@@ -365,7 +369,7 @@ int main(int argc, char ** argv) {
             nanos = ((seconds * 1000000000LL) + tend.tv_nsec) - tstart.tv_nsec;
             timeInterval = (double) nanos / 1000000000.0;
             uint64_t currentTries = rounds * GlobalConfig.gpuThreads;
-            solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], rsAddress);
+            solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2)], rsAddress, NULL, NULL);
             printf(
                 "\r %llu tries - Lucky chance: %.1f%% - %.0f tries/second. Last generated S-%s",
                 PRINTF_CAST currentTries,
@@ -393,26 +397,28 @@ int main(int argc, char ** argv) {
                     PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset
                 );
                 currentPassphrase[PASSPHRASE_MAX_LENGTH - secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i].offset]='\0';
-                uint64_t newId = solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i], rsAddress);
+                uint64_t newId = solveOnlyOne(&secretBuf[GlobalConfig.gpuThreads * (rounds % 2) + i], rsAddress, publicKeyHex, extendedPublicKey);
                 if (GlobalConfig.appendDb == 1) {
-                    appendDb(currentPassphrase, rsAddress, newId);
+                    appendDb(currentPassphrase, rsAddress, newId, publicKeyHex, extendedPublicKey);
                 }
                 if (GlobalConfig.endless == 0) {
                     printf(
-                        "\nPassphrase: '%s' RS: S-%s id: %20llu\n",
-                        currentPassphrase,
+                        "\nID: %20llu RS: %s-%s Passphrase: '%s'\n",
+                        PRINTF_CAST newId,
                         rsAddress,
-                        PRINTF_CAST newId
+                        extendedPublicKey,                       
+                        currentPassphrase
                     );
                     fflush(stdout);
                     end = 1;
                     break;
                 } else {
                     printf(
-                        "\rPassphrase: '%s' RS: S-%s id: %20llu\n",
-                        currentPassphrase,
+                        "\rID: %20llu RS: %s-%s Passphrase: '%s'\n",
+                        PRINTF_CAST newId,
                         rsAddress,
-                        PRINTF_CAST newId
+                        extendedPublicKey,
+                        currentPassphrase
                     );
                     fflush(stdout);
                     rounds %= 2;
