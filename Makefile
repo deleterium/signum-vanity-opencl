@@ -17,7 +17,7 @@ endif
 all: pre-build main-build
 
 pre-build:
-	mkdir -p {build,dist}
+	mkdir -p build dist
 
 main-build: compile src/main.c
 	gcc -o build/vanity src/main.c build/*.o $(MY_CFLAGS) -lm -lcrypto $(OPENCL_LIB) && \

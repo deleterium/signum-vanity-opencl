@@ -74,7 +74,7 @@ Mask:
 # Compilation details
 
 ## Linux
-* Dependencies: build-essential, OpenSSL and OpenCL driver installed for your graphics card
+* Dependencies: install packates build-essential, libssl-dev (OpenSSL) and ocl-icd-opencl-dev (OpenCL).
 * Clone repository
 * Compile `make`
 * Package will be avaliable at `dist` folder.
