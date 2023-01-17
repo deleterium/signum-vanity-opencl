@@ -282,7 +282,7 @@ void createkernel() {
         program,
         1,
         &gpuDevices[GlobalConfig.gpuDevice],
-        " -cl-std=CL1.2 -Werror ",
+        NULL,
         NULL,
         NULL
     );
