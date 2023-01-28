@@ -93,7 +93,7 @@ void gpuSolver(struct PASSPHRASE * inputBatch, uint8_t * resultBatch) {
 
 void load_source() {
     FILE * fp;
-    fp = fopen("passphraseToId.cl", "rb");
+    fp = fopen("passphraseToId.cl3.cl", "rb");
     if (!fp) {
         fprintf(stderr, "Failed to load kernel file 'passphraseToId.cl'.\n");
         exit(1);
@@ -282,7 +282,7 @@ void createkernel() {
         program,
         1,
         &gpuDevices[GlobalConfig.gpuDevice],
-        NULL,
+        " -cl-std=CL3.0 ",
         NULL,
         NULL
     );
